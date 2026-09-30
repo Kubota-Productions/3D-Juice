@@ -1,0 +1,12 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://ys3i1qniyqr3"]
+
+[ext_resource type="Texture2D" uid="uid://c1qk12uq2h02a" path="res://Player/outfit_Base_color.png" id="1_svchf"]
+[ext_resource type="Texture2D" uid="uid://bxyi3wwi1olb6" path="res://Player/outfit_Normal_OpenGL.png" id="3_obs64"]
+[ext_resource type="Texture2D" uid="uid://dn0fdcm8dygfh" path="res://Player/outfit_Roughness.png" id="4_21hgn"]
+
+[resource]
+albedo_texture = ExtResource("1_svchf")
+roughness_texture = ExtResource("4_21hgn")
+normal_enabled = true
+normal_scale = 1.77
+normal_texture = ExtResource("3_obs64")

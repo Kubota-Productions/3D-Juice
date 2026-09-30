@@ -1,0 +1,81 @@
+[gd_resource type="AnimationNodeBlendTree" format=3 uid="uid://cuj8t7m0wgqek"]
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_gnc57"]
+animation = &"rig|idle"
+use_custom_timeline = true
+timeline_length = 1.0
+stretch_time_scale = true
+start_offset = 0.0
+loop_mode = 1
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_83l2n"]
+animation = &"rig|Walk"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_cnhmo"]
+animation = &"rig|Jog"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_7cakq"]
+animation = &"rig|Run"
+
+[sub_resource type="AnimationNodeBlendSpace1D" id="AnimationNodeBlendSpace1D_jcfmy"]
+min_space = 0.0
+max_space = 2.5
+blend_point_0/node = SubResource("AnimationNodeAnimation_gnc57")
+blend_point_0/pos = 0.0
+blend_point_0/name = &"rig|idle"
+blend_point_1/node = SubResource("AnimationNodeAnimation_83l2n")
+blend_point_1/pos = 1.4
+blend_point_1/name = &"rig|Walk"
+blend_point_2/node = SubResource("AnimationNodeAnimation_cnhmo")
+blend_point_2/pos = 1.9
+blend_point_2/name = &"rig|Jog"
+blend_point_3/node = SubResource("AnimationNodeAnimation_7cakq")
+blend_point_3/pos = 2.5
+blend_point_3/name = &"rig|Run"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_7v5gs"]
+animation = &"rig|Fall"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_8sa4y"]
+animation = &"rig|Jump"
+
+[sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_3nb2p"]
+animation = &"rig|Land"
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_ps8ct"]
+advance_mode = 0
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_v0k0e"]
+advance_mode = 0
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_6sm0d"]
+advance_mode = 2
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_qqw7k"]
+advance_mode = 0
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_q1dyn"]
+advance_mode = 0
+
+[sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_smdbt"]
+advance_mode = 2
+
+[sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_s0mko"]
+states/Locomotion/node = SubResource("AnimationNodeBlendSpace1D_jcfmy")
+states/Locomotion/position = Vector2(302, 111)
+states/Start/position = Vector2(63, 111)
+states/rig|Fall/node = SubResource("AnimationNodeAnimation_7v5gs")
+states/rig|Fall/position = Vector2(579, 37)
+states/rig|Jump/node = SubResource("AnimationNodeAnimation_8sa4y")
+states/rig|Jump/position = Vector2(391, 31)
+states/rig|Land/node = SubResource("AnimationNodeAnimation_3nb2p")
+states/rig|Land/position = Vector2(616, 165)
+transitions = ["rig|Jump", "rig|Fall", SubResource("AnimationNodeStateMachineTransition_ps8ct"), "rig|Fall", "rig|Land", SubResource("AnimationNodeStateMachineTransition_v0k0e"), "Start", "Locomotion", SubResource("AnimationNodeStateMachineTransition_6sm0d"), "Locomotion", "rig|Jump", SubResource("AnimationNodeStateMachineTransition_qqw7k"), "Locomotion", "rig|Fall", SubResource("AnimationNodeStateMachineTransition_q1dyn"), "rig|Land", "Locomotion", SubResource("AnimationNodeStateMachineTransition_smdbt")]
+
+[resource]
+resource_local_to_scene = true
+graph_offset = Vector2(-329.73242, 83.90181)
+nodes/output/position = Vector2(400, 160)
+nodes/StateMachine/node = SubResource("AnimationNodeStateMachine_s0mko")
+nodes/StateMachine/position = Vector2(-20, 200)
+node_connections = [&"output", 0, &"StateMachine"]

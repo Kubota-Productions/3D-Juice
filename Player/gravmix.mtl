@@ -1,0 +1,46 @@
+# Blender 5.2.0 LTS MTL File: 'gravrushfinal.blend'
+# www.blender.org
+
+newmtl Tiny_Iris_1.3_(Style_Amber)
+Ns 360.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl Tiny_Sclera_1.3_(Style_Amber)
+Ns 360.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl body
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd body_Base_color.png
+map_Ns body_Roughness.png
+map_refl body_Metallic.png
+map_Bump -bm 1.000000 body_Normal_OpenGL.png
+
+newmtl outfit
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd outfit_Base_color.png
+map_Ns outfit_Roughness.png
+map_refl outfit_Metallic.png
+map_Bump -bm 1.000000 outfit_Normal_OpenGL.png

@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dsrm2b7ohwh06"
+path="res://.godot/imported/gravmix.obj-c457d7932b5f5ca88f1ee981583c9170.mesh"
+
+[deps]
+
+files=["res://.godot/imported/gravmix.obj-c457d7932b5f5ca88f1ee981583c9170.mesh"]
+
+source_file="res://Player/gravmix.obj"
+dest_files=["res://.godot/imported/gravmix.obj-c457d7932b5f5ca88f1ee981583c9170.mesh", "res://.godot/imported/gravmix.obj-c457d7932b5f5ca88f1ee981583c9170.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false
