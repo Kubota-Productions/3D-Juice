@@ -1,9 +1,6 @@
 extends Node
 class_name PlayerAnimationController
 
-# ============================================================
-# REFERENCES
-# ============================================================
 @export var player: Player
 @export var character_model: Node3D
 
@@ -11,57 +8,23 @@ var animation_tree: AnimationTree
 var animation_player: AnimationPlayer
 var anim_playback: AnimationNodeStateMachinePlayback
 
-
-# ============================================================
-# CHARACTER MESHES (shader params get pushed to all of these)
-# ============================================================
 var mesh_instances: Array[MeshInstance3D] = []
 
 
-# ============================================================
-# FOOT IK
-# ============================================================
-@export_group("Foot IK")
-@export var skeleton: Skeleton3D
-@export var left_foot_bone: String = "LeftFoot"
-@export var right_foot_bone: String = "RightFoot"
-@export var left_target: Node3D
-@export var right_target: Node3D
-@export var foot_contact_threshold: float = 0.05
-@export var ik_blend_speed: float = 12.0
-@export var sole_offset: float = 0.03
-
-var left_bone_idx: int = -1
-var right_bone_idx: int = -1
-var left_weight: float = 0.0
-var right_weight: float = 0.0
-
-
-# ============================================================
-# LOCOMOTION BLEND
-# ============================================================
 @export_group("Locomotion Blend")
 @export var speed_blend_smoothing_time: float = 0.06
 
 var smoothed_locomotion_speed: float = 0.0
 
 
-# ============================================================
-# WALL RUN LEAN
-# ============================================================
 @export_group("Wall Run Lean")
-
 @export var wall_run_lean_angle_deg: float = 8.0
 @export var wall_run_lean_smoothing_speed: float = 10.0
 
 var current_wall_run_lean: float = 0.0
 
 
-# ============================================================
-# LANDING ANTICIPATION
-# ============================================================
 @export_group("Landing Anticipation")
-
 @export var land_anim_duration: float = 0.25
 @export var landing_predict_ray_length: float = 50.0
 @export var ground_contact_offset: float = 0.0
@@ -70,21 +33,25 @@ var land_anim_active: bool = false
 var landing_timer: float = 0.0
 
 
-# ============================================================
-# STATE
-# ============================================================
+@export_group("Jump To Fall")
+@export var fall_anticipation_time: float = 0.1
+
+
 enum AnimState {
 	IDLE,
 	JOG,
 	RUN,
 	SLIDE,
 	WALL_SLIDE,
+	WALL_KICK,
 	JUMP,
 	DOUBLE_JUMP,
 	TRIPLE_JUMP,
 	JUMP_OUT_OF_SLIDE,
 	FALL,
-	LAND
+	LAND,
+	LEDGE_HANG,
+	LEDGE_CLIMB
 }
 
 const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
@@ -92,14 +59,11 @@ const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
 var current_anim_state := AnimState.IDLE
 var was_on_floor := true
 
-# Tracks whether the player was sliding immediately before
-# becoming airborne.
 var was_sliding := false
 
+var _warned_missing_states: Array[String] = []
 
-# ============================================================
-# READY
-# ============================================================
+
 func _ready() -> void:
 	if not player:
 		push_error("PlayerAnimationController: 'player' not assigned")
@@ -159,30 +123,22 @@ func _ready() -> void:
 			+ "-- lean/squash shader params won't apply"
 		)
 
-	if skeleton:
-		left_bone_idx = skeleton.find_bone(left_foot_bone)
-		right_bone_idx = skeleton.find_bone(right_foot_bone)
 
-		if left_bone_idx == -1:
-			push_error(
-				"PlayerAnimationController: bone '%s' not found on skeleton"
-				% left_foot_bone
+func _travel_if_present(state_name: String) -> void:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+
+	if machine and not machine.has_node(state_name):
+		if not _warned_missing_states.has(state_name):
+			_warned_missing_states.append(state_name)
+			push_warning(
+				"PlayerAnimationController: no '%s' state in the AnimationTree state machine"
+				% state_name
 			)
+		return
 
-		if right_bone_idx == -1:
-			push_error(
-				"PlayerAnimationController: bone '%s' not found on skeleton"
-				% right_foot_bone
-			)
-	else:
-		push_error(
-			"PlayerAnimationController: 'skeleton' not assigned -- foot IK disabled"
-		)
+	anim_playback.travel(state_name)
 
 
-# ============================================================
-# FIND NODE
-# ============================================================
 func _find_first_of_type(root: Node, type_name: String) -> Node:
 	for child in root.get_children():
 		if child.is_class(type_name):
@@ -196,9 +152,6 @@ func _find_first_of_type(root: Node, type_name: String) -> Node:
 	return null
 
 
-# ============================================================
-# FIND ALL NODES
-# ============================================================
 func _find_all_of_type(
 	root: Node,
 	type_name: String,
@@ -215,9 +168,6 @@ func _find_all_of_type(
 		)
 
 
-# ============================================================
-# DEBUG TREE
-# ============================================================
 func _debug_print_tree(
 	root: Node,
 	indent: String = ""
@@ -237,9 +187,6 @@ func _debug_print_tree(
 		)
 
 
-# ============================================================
-# LANDING PREDICTION
-# ============================================================
 func _predict_landing_within(
 	lead_time: float
 ) -> bool:
@@ -312,9 +259,17 @@ func _predict_landing_within(
 	return time_to_land <= lead_time
 
 
-# ============================================================
-# MAIN ANIMATION UPDATE
-# ============================================================
+func _is_still_rising() -> bool:
+	match player.jump_phase:
+		Player.JumpPhase.RISING:
+			var until_fall: float = player.jump_phase_timer + maxf(player.jump_hang_time, 0.0)
+			return until_fall > fall_anticipation_time
+		Player.JumpPhase.HANGING:
+			return player.jump_phase_timer > fall_anticipation_time
+
+	return player.velocity.dot(player.up_direction) > 0.5
+
+
 func update(delta: float) -> void:
 
 	if not animation_tree or not anim_playback:
@@ -322,11 +277,35 @@ func update(delta: float) -> void:
 
 	var on_floor := player.is_on_floor()
 
+	if player.is_ledge_climbing or player.is_ledge_hanging:
 
-	# --------------------------------------------------------
-	# PREEMPTIVE LANDING
-	# --------------------------------------------------------
-	if not on_floor and not land_anim_active:
+		var ledge_target: AnimState = (
+			AnimState.LEDGE_CLIMB if player.is_ledge_climbing else AnimState.LEDGE_HANG
+		)
+
+		if current_anim_state != ledge_target:
+
+			current_anim_state = ledge_target
+
+			_travel_if_present(
+				"LedgeClimb" if player.is_ledge_climbing else "LedgeHang"
+			)
+
+		was_on_floor = true
+		was_sliding = false
+		land_anim_active = false
+		landing_timer = 0.0
+
+		_update_locomotion_speed(delta)
+
+		return
+
+	if (
+		not on_floor
+		and not land_anim_active
+		and not player.is_wall_sliding
+		and not player.is_wall_running
+	):
 		if _predict_landing_within(land_anim_duration):
 
 			land_anim_active = true
@@ -335,10 +314,6 @@ func update(delta: float) -> void:
 
 			anim_playback.travel("Land")
 
-
-	# --------------------------------------------------------
-	# REACTIVE LANDING
-	# --------------------------------------------------------
 	if !was_on_floor and on_floor and not land_anim_active:
 
 		land_anim_active = true
@@ -347,13 +322,8 @@ func update(delta: float) -> void:
 
 		anim_playback.travel("Land")
 
-
 	was_on_floor = on_floor
 
-
-	# --------------------------------------------------------
-	# LANDING ANIMATION ACTIVE
-	# --------------------------------------------------------
 	if landing_timer > 0.0:
 
 		landing_timer -= delta
@@ -362,21 +332,11 @@ func update(delta: float) -> void:
 			land_anim_active = false
 
 		_update_locomotion_speed(delta)
-		_update_foot_ik(delta)
 
 		return
 
-
 	land_anim_active = false
 
-
-	# --------------------------------------------------------
-	# SLIDE
-	#
-	# Remember that the player is sliding so that if they jump
-	# during/at the end of the slide we can play
-	# JumpOutOfSlide.
-	# --------------------------------------------------------
 	if player.is_sliding:
 
 		was_sliding = true
@@ -388,24 +348,11 @@ func update(delta: float) -> void:
 			anim_playback.travel("Slide")
 
 		_update_locomotion_speed(delta)
-		_update_foot_ik(delta)
 
 		return
 
-
-	# ========================================================
-	# AIRBORNE
-	# ========================================================
 	if !on_floor:
 
-		# ----------------------------------------------------
-		# JUMP OUT OF SLIDE
-		#
-		# This must happen before the normal jump check.
-		#
-		# If the player was sliding and is now airborne while
-		# moving upward, play JumpOutOfSlide instead of Jump.
-		# ----------------------------------------------------
 		if was_sliding:
 
 			var jumping_up: bool = (
@@ -427,13 +374,9 @@ func update(delta: float) -> void:
 				was_sliding = false
 
 				_update_locomotion_speed(delta)
-				_update_foot_ik(delta)
 
 				return
 
-		# ----------------------------------------------------
-		# WALL SLIDE
-		# ----------------------------------------------------
 		if player.is_wall_sliding:
 
 			if current_anim_state != AnimState.WALL_SLIDE:
@@ -443,14 +386,9 @@ func update(delta: float) -> void:
 				anim_playback.travel("WallSlide")
 
 			_update_locomotion_speed(delta)
-			_update_foot_ik(delta)
 
 			return
 
-
-		# ----------------------------------------------------
-		# WALL RUN
-		# ----------------------------------------------------
 		if player.is_wall_running:
 
 			if current_anim_state != AnimState.RUN:
@@ -468,20 +406,9 @@ func update(delta: float) -> void:
 				smoothed_locomotion_speed
 			)
 
-			_update_foot_ik(delta)
-
 			return
 
-
-		# ----------------------------------------------------
-		# JUMP
-		# ----------------------------------------------------
-		var in_jump: bool = (
-			player.jump_phase != Player.JumpPhase.NONE
-			or player.velocity.dot(
-				player.up_direction
-			) > 0.0
-		)
+		var in_jump: bool = _is_still_rising()
 
 		if in_jump:
 
@@ -490,15 +417,13 @@ func update(delta: float) -> void:
 				and current_anim_state != AnimState.DOUBLE_JUMP
 				and current_anim_state != AnimState.TRIPLE_JUMP
 				and current_anim_state != AnimState.JUMP_OUT_OF_SLIDE
+				and current_anim_state != AnimState.WALL_KICK
 			):
 
 				current_anim_state = AnimState.JUMP
 
 				anim_playback.travel("Jump")
 
-		# ----------------------------------------------------
-		# FALL
-		# ----------------------------------------------------
 		else:
 
 			if current_anim_state != AnimState.FALL:
@@ -507,19 +432,10 @@ func update(delta: float) -> void:
 
 				anim_playback.travel("Fall")
 
-
 		_update_locomotion_speed(delta)
-		_update_foot_ik(delta)
 
 		return
 
-
-	# ========================================================
-	# GROUNDED LOCOMOTION
-	# ========================================================
-
-	# If we are grounded and no longer sliding, clear the
-	# previous-slide flag.
 	was_sliding = false
 
 	var was_grounded_locomotion := current_anim_state in [
@@ -527,7 +443,6 @@ func update(delta: float) -> void:
 		AnimState.JOG,
 		AnimState.RUN
 	]
-
 
 	if player.move_input.length_squared() == 0.0:
 
@@ -541,15 +456,11 @@ func update(delta: float) -> void:
 
 		current_anim_state = AnimState.JOG
 
-
-	# Only travel into BlendSpace when entering normal
-	# grounded locomotion.
 	if not was_grounded_locomotion:
 
 		anim_playback.travel(
 			"BlendSpace1D"
 		)
-
 
 	_update_locomotion_speed(delta)
 
@@ -558,12 +469,7 @@ func update(delta: float) -> void:
 		smoothed_locomotion_speed
 	)
 
-	_update_foot_ik(delta)
 
-
-# ============================================================
-# LOCOMOTION SPEED
-# ============================================================
 func _update_locomotion_speed(delta: float) -> void:
 
 	var actual_speed: float = (
@@ -588,9 +494,6 @@ func _update_locomotion_speed(delta: float) -> void:
 	)
 
 
-# ============================================================
-# DOUBLE JUMP
-# ============================================================
 func play_double_jump() -> void:
 
 	if not animation_tree or not anim_playback:
@@ -598,7 +501,6 @@ func play_double_jump() -> void:
 
 	current_anim_state = AnimState.DOUBLE_JUMP
 
-	# A double jump is no longer a slide jump.
 	was_sliding = false
 
 	anim_playback.travel(
@@ -606,9 +508,6 @@ func play_double_jump() -> void:
 	)
 
 
-# ============================================================
-# TRIPLE JUMP
-# ============================================================
 func play_triple_jump() -> void:
 
 	if not animation_tree or not anim_playback:
@@ -616,7 +515,6 @@ func play_triple_jump() -> void:
 
 	current_anim_state = AnimState.TRIPLE_JUMP
 
-	# A triple jump is no longer a slide jump.
 	was_sliding = false
 
 	anim_playback.travel(
@@ -624,158 +522,22 @@ func play_triple_jump() -> void:
 	)
 
 
-# ============================================================
-# FOOT IK
-# ============================================================
-func _update_foot_ik(delta: float) -> void:
+func play_wall_kick() -> void:
 
-	if (
-		not skeleton
-		or left_bone_idx == -1
-		or right_bone_idx == -1
-	):
+	if not animation_tree or not anim_playback:
 		return
 
+	current_anim_state = AnimState.WALL_KICK
 
-	if not player.is_on_floor():
+	was_sliding = false
+	land_anim_active = false
+	landing_timer = 0.0
 
-		left_weight = move_toward(
-			left_weight,
-			0.0,
-			ik_blend_speed * delta
-		)
-
-		right_weight = move_toward(
-			right_weight,
-			0.0,
-			ik_blend_speed * delta
-		)
-
-		return
-
-
-	_solve_foot(
-		left_bone_idx,
-		left_target,
-		delta,
-		true
-	)
-
-	_solve_foot(
-		right_bone_idx,
-		right_target,
-		delta,
-		false
+	_travel_if_present(
+		"WallKick"
 	)
 
 
-# ============================================================
-# SOLVE FOOT
-# ============================================================
-func _solve_foot(
-	bone_idx: int,
-	target: Node3D,
-	delta: float,
-	is_left: bool
-) -> void:
-
-	if not target:
-		return
-
-
-	var down: Vector3 = -player.up_direction
-
-	var foot_global: Vector3 = (
-		skeleton.global_transform
-		* skeleton.get_bone_global_pose(
-			bone_idx
-		).origin
-	)
-
-
-	var origin := (
-		foot_global
-		- down * 0.3
-	)
-
-	var dest := (
-		foot_global
-		+ down * 0.3
-	)
-
-
-	var query := PhysicsRayQueryParameters3D.create(
-		origin,
-		dest
-	)
-
-	query.exclude = [player]
-
-
-	var hit := (
-		player
-		.get_world_3d()
-		.direct_space_state
-		.intersect_ray(query)
-	)
-
-
-	if not hit:
-		return
-
-
-	var target_position: Vector3 = (
-		hit.position
-		- down * sole_offset
-	)
-
-
-	var height_above_ground: float = (
-		foot_global - hit.position
-	).length()
-
-
-	var contact_target: float = (
-		1.0
-		if height_above_ground < foot_contact_threshold
-		else 0.0
-	)
-
-
-	if is_left:
-
-		left_weight = move_toward(
-			left_weight,
-			contact_target,
-			ik_blend_speed * delta
-		)
-
-		target.global_position = (
-			target.global_position.lerp(
-				target_position,
-				left_weight
-			)
-		)
-
-	else:
-
-		right_weight = move_toward(
-			right_weight,
-			contact_target,
-			ik_blend_speed * delta
-		)
-
-		target.global_position = (
-			target.global_position.lerp(
-				target_position,
-				right_weight
-			)
-		)
-
-
-# ============================================================
-# FORCE IDLE
-# ============================================================
 func force_idle() -> void:
 
 	current_anim_state = AnimState.IDLE
