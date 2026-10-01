@@ -33,6 +33,17 @@ var base_bar_color: Color = Color.WHITE
 @export var speed_lines_shift_align_full: float = 0.7
 var speed_lines_intensity: float = 0.0
 
+# ============================================================
+# WALL MOVE INDICATORS
+# ============================================================
+@export_group("Wall Move Indicators")
+## Any Control (TextureRect, Label, Panel, ...). Visible while a wall run
+## is available; hidden while one is in progress or all runs are used up.
+@export var wall_run_indicator: Control
+## Visible while a wall slide is available; hidden while one is in
+## progress or all slides are used up.
+@export var wall_slide_indicator: Control
+
 
 func _ready() -> void:
 	if shift_power_bar:
@@ -41,6 +52,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	update_graphics(delta)
+	update_wall_indicators()
 	if Cam_controller == null or player_cam == null:
 		return
 
@@ -120,3 +132,41 @@ func update_graphics(delta: float) -> void:
 		var mat := speed_lines.material as ShaderMaterial
 		if mat:
 			mat.set_shader_parameter("intensity", speed_lines_intensity)
+
+
+# ============================================================
+# WALL MOVE INDICATORS
+# ============================================================
+func update_wall_indicators() -> void:
+	if not player:
+		return
+
+	if wall_run_indicator:
+		wall_run_indicator.visible = _is_wall_run_available()
+
+	if wall_slide_indicator:
+		wall_slide_indicator.visible = _is_wall_slide_available()
+
+
+## A wall run counts as available when the player isn't mid-run, still has
+## runs left (Player resets the count on landing), and wall movement isn't
+## disabled by being locked or in OTS mode.
+func _is_wall_run_available() -> bool:
+	if player.movement_locked or player.is_ots_mode:
+		return false
+
+	if player.is_wall_running:
+		return false
+
+	return player._wall_runs_used < player.max_wall_runs
+
+
+## Same rules as the wall run, using the slide's own counter and limit.
+func _is_wall_slide_available() -> bool:
+	if player.movement_locked or player.is_ots_mode:
+		return false
+
+	if player.is_wall_sliding:
+		return false
+
+	return player._wall_slides_used < player.max_wall_slides

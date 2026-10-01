@@ -51,10 +51,13 @@ enum AnimState {
 	FALL,
 	LAND,
 	LEDGE_HANG,
-	LEDGE_CLIMB
+	LEDGE_CLIMB,
+	CROUCH
 }
 
 const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
+
+const CROUCH_BLEND_PARAM := "parameters/CrouchBlend/blend_position"
 
 var current_anim_state := AnimState.IDLE
 var was_on_floor := true
@@ -438,6 +441,20 @@ func update(delta: float) -> void:
 
 	was_sliding = false
 
+	if player.is_crouching:
+		if current_anim_state != AnimState.CROUCH:
+			current_anim_state = AnimState.CROUCH
+			_travel_if_present("CrouchBlend")
+
+		_update_locomotion_speed(delta)
+
+		animation_tree.set(
+			"parameters/CrouchBlend/blend_position",
+			smoothed_locomotion_speed
+		)
+
+		return
+	
 	var was_grounded_locomotion := current_anim_state in [
 		AnimState.IDLE,
 		AnimState.JOG,

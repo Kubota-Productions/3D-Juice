@@ -12,8 +12,17 @@ extends CharacterBody3D
 @onready var player_collision_shape: CollisionShape3D = get_node_or_null("CollisionShape3D")
 const NORMAL_COLLISION_Y := 0.672
 const NORMAL_COLLISION_HEIGHT := 1.344
+# The short collider is shared by the slide and the crouch.
 const SLIDE_COLLISION_Y := 0.33
 const SLIDE_COLLISION_HEIGHT := 0.672
+
+## Full-height capsule used only to ask "would standing up here overlap
+## anything?" -- the real collider is the short one while sliding.
+var _stand_check_shape: CapsuleShape3D
+
+## How much upward speed move_and_slide() is allowed to add on its own
+## while airborne (see _limit_unearned_rise).
+const MAX_UNEARNED_RISE_TOLERANCE := 0.25
 
 @export var animation_controller: Node
 var pending_acceleration: Vector3 = Vector3.ZERO
@@ -55,6 +64,7 @@ func hard_stop() -> void:
 	jump_phase_timer = 0.0
 	_set_jump_profile()
 	_cancel_slide()
+	_end_crouch(false)
 	_end_wall_movement(false)
 	_wall_lockout_timer = 0.0
 	_wall_kick_face_timer = 0.0
@@ -119,6 +129,20 @@ var landing_brake_timer: float = 0.0
 @export var slide_slope_full_angle_deg: float = 35.0
 
 
+@export_group("Crouch")
+## Walking speed while crouched. Normal walking is walk_speed.
+@export var crouch_speed: float = 1.75
+## false: hold Crouch to stay crouched. true: tap Crouch to toggle.
+@export var crouch_is_toggle: bool = false
+## Jumping out of a crouch uses this profile instead of the normal jump.
+## Keep the rise/fall times in proportion to the height, or the gravity
+## gets very heavy/floaty (the defaults roughly match the normal jump's gravity).
+@export var crouch_jump_height: float = 4.0
+@export var crouch_jump_rise_time: float = 0.57
+@export var crouch_jump_fall_time: float = 0.5
+@export var crouch_jump_air_control: float = 0.45
+
+
 @export_group("Wall Movement")
 @export var wall_check_distance: float = 0.8
 @export var wall_run_speed: float = 6.0
@@ -138,6 +162,12 @@ var landing_brake_timer: float = 0.0
 
 const SLIDE_JUMP_GRACE := 0.15
 const SLIDE_MIN_SPEED := 1.0
+## Lifts the standing-height overlap test slightly off the floor so the
+## ground the player is already touching doesn't count as an obstruction.
+const STAND_CHECK_LIFT := 0.04
+## Releasing Crouch a moment before pressing jump still counts as a crouch jump.
+const CROUCH_JUMP_GRACE := 0.1
+const CROUCH_ACTION := &"Crouch"
 const WALL_RUN_MAX_APPROACH := 0.64
 const WALL_SLIDE_MIN_APPROACH := 0.3
 const WALL_STICK_SPEED := 1.0
@@ -223,7 +253,7 @@ var _last_air_fall_speed: float = 0.0
 @export var max_jumps: int = 3
 
 enum JumpPhase { NONE, RISING, HANGING }
-enum JumpKind { NORMAL, SLIDE, WALL }
+enum JumpKind { NORMAL, SLIDE, WALL, CROUCH }
 
 var jump_phase: JumpPhase = JumpPhase.NONE
 var jump_phase_timer: float = 0.0
@@ -259,7 +289,11 @@ func _ready() -> void:
 
 	if player_collision_shape and player_collision_shape.shape:
 		player_collision_shape.shape = player_collision_shape.shape.duplicate()
-		_set_slide_collision(false)
+		_set_short_collision(false)
+		_build_stand_check_shape()
+
+	if not InputMap.has_action(CROUCH_ACTION):
+		push_warning("Player: no 'Crouch' action in the Input Map -- crouching is disabled.")
 
 	telekinesis_controller.setup(self, camera_3d)
 	combat_controller.setup(self, camera_3d)
@@ -274,7 +308,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ToggleOTS"):
 		if is_ots_mode:
 			is_ots_mode = false
-		elif is_on_floor():
+		elif is_on_floor() and (not is_sliding or _can_stand_up()):
 			is_ots_mode = true
 
 	telekinesis_controller.handle_input(event)
@@ -306,6 +340,7 @@ func _physics_process(delta: float) -> void:
 
 	if ledge_state == LedgeState.NONE:
 		_update_slide(delta)
+		_update_crouch(delta)
 		_update_wall_movement(delta)
 		_try_grab_ledge()
 
@@ -321,7 +356,10 @@ func _physics_process(delta: float) -> void:
 		_apply_gravity(delta)
 
 		_integrate_velocity(delta)
+
+		var up_speed_before: float = velocity.dot(up_direction)
 		move_and_slide()
+		_limit_unearned_rise(up_speed_before)
 
 	aim_pivot.global_position = get_body_center()
 	spring_arm.update_pivot_position(delta)
@@ -355,7 +393,7 @@ func _read_input(delta: float) -> void:
 		jump_buffer_timer = 0.0
 		return
 
-	if Input.is_action_pressed("Run") and move_input.length_squared() > 0.0:
+	if Input.is_action_pressed("Run") and move_input.length_squared() > 0.0 and not is_crouching:
 		run_timer += delta
 
 		if run_timer >= RUN_THRESHOLD:
@@ -449,6 +487,11 @@ func _set_jump_profile(kind: JumpKind = JumpKind.NORMAL) -> void:
 			air_control = slide_jump_air_control
 		JumpKind.WALL:
 			air_control = wall_jump_air_control
+		JumpKind.CROUCH:
+			height = crouch_jump_height
+			rise_t = crouch_jump_rise_time
+			fall_t = crouch_jump_fall_time
+			air_control = crouch_jump_air_control
 
 	rise_t = maxf(rise_t, 0.01)
 	fall_t = maxf(fall_t, 0.01)
@@ -512,9 +555,34 @@ func _apply_gravity(delta: float) -> void:
 		add_acceleration(-up_direction * get_fall_gravity())
 
 
+## Safety net for collision response. move_and_slide() can redirect
+## horizontal speed upward when the capsule catches a corner/edge or a steep
+## face while airborne (which is how a slide at speed can turn into
+## free height). Nothing the player does intentionally adds upward speed
+## *during* move_and_slide -- jumps, wall-run arcs, etc. are all applied
+## before it -- so any upward speed that appears while airborne beyond what
+## went in is removed. Grounded frames are skipped so ramps still carry you up.
+func _limit_unearned_rise(up_speed_before: float) -> void:
+	if is_on_floor():
+		return
+
+	var up_speed_after: float = velocity.dot(up_direction)
+	var allowed: float = maxf(up_speed_before, 0.0)
+
+	if up_speed_after > allowed + MAX_UNEARNED_RISE_TOLERANCE:
+		velocity -= up_direction * (up_speed_after - allowed)
+
+
 func _handle_jump(_delta: float) -> void:
 
 	if jump_buffer_timer <= 0.0:
+		return
+
+	# No headroom to stand up means no room to jump out of the crouch/slide
+	# either (the collider would grow inside the ceiling mid-air). The
+	# buffered press stays alive, so the jump still fires if they clear the
+	# cover in time.
+	if (is_sliding or is_crouching) and not _can_stand_up():
 		return
 
 	if wall_state != WallState.NONE:
@@ -525,6 +593,9 @@ func _handle_jump(_delta: float) -> void:
 		if is_sliding or _slide_jump_grace_timer > 0.0:
 			_start_jump(JumpKind.SLIDE, _slide_direction * maxf(slide_jump_speed, _slide_speed))
 			_end_slide(false)
+		elif is_crouching or _crouch_jump_grace_timer > 0.0:
+			_start_jump(JumpKind.CROUCH)
+			_end_crouch(false)
 		else:
 			_start_jump()
 
@@ -552,9 +623,16 @@ func _start_jump(kind: JumpKind = JumpKind.NORMAL, planar_launch: Vector3 = Vect
 	if kind != JumpKind.WALL:
 		_wall_kick_face_timer = 0.0
 
-	var impulse: Vector3 = -velocity.project(up_direction) + up_direction * _active_jump_velocity
+	# Other systems can already have queued vertical acceleration this frame
+	# (e.g. the wall-run entry impulse, which fires in the same frame as a
+	# buffered wall jump). Cancelling only the *current* velocity meant that
+	# vertical speed got cancelled twice, so the jump launched with the old
+	# fall speed added on top -- a big free boost. Cancel the velocity as it
+	# will be once the queued acceleration is integrated instead.
+	var predicted_velocity: Vector3 = velocity + pending_acceleration * _current_delta
+	var impulse: Vector3 = -predicted_velocity.project(up_direction) + up_direction * _active_jump_velocity
 
-	if kind != JumpKind.NORMAL:
+	if kind == JumpKind.SLIDE or kind == JumpKind.WALL:
 		impulse += planar_launch - velocity.slide(up_direction)
 
 	add_impulse(impulse)
@@ -585,24 +663,29 @@ func _start_slide() -> void:
 	_slide_speed = slide_speed
 	_slide_elapsed = 0.0
 	_slide_jump_grace_timer = 0.0
-	_set_slide_collision(true)
+	_refresh_collision()
 
 
 func _end_slide(allow_jump_grace: bool) -> void:
 	is_sliding = false
 	slide_timer = 0.0
 	_slide_jump_grace_timer = SLIDE_JUMP_GRACE if allow_jump_grace else 0.0
-	_set_slide_collision(false)
+	_refresh_collision()
 
 
 func _cancel_slide() -> void:
 	is_sliding = false
 	slide_timer = 0.0
 	_slide_jump_grace_timer = 0.0
-	_set_slide_collision(false)
+	_refresh_collision()
 
 
-func _set_slide_collision(sliding: bool) -> void:
+## The short collider is used whenever the player is sliding OR crouching.
+func _refresh_collision() -> void:
+	_set_short_collision(is_sliding or is_crouching)
+
+
+func _set_short_collision(short: bool) -> void:
 	if not player_collision_shape:
 		return
 
@@ -611,8 +694,51 @@ func _set_slide_collision(sliding: bool) -> void:
 		push_warning("Player: CollisionShape3D must use a CapsuleShape3D for slide collision resizing.")
 		return
 
-	player_collision_shape.position.y = SLIDE_COLLISION_Y if sliding else NORMAL_COLLISION_Y
-	capsule.height = SLIDE_COLLISION_HEIGHT if sliding else NORMAL_COLLISION_HEIGHT
+	player_collision_shape.position.y = SLIDE_COLLISION_Y if short else NORMAL_COLLISION_Y
+	capsule.height = SLIDE_COLLISION_HEIGHT if short else NORMAL_COLLISION_HEIGHT
+
+
+func _build_stand_check_shape() -> void:
+	var capsule := player_collision_shape.shape as CapsuleShape3D
+	if not capsule:
+		return
+
+	_stand_check_shape = capsule.duplicate() as CapsuleShape3D
+	_stand_check_shape.height = NORMAL_COLLISION_HEIGHT
+
+
+## True if the full-height collider would fit at the player's current
+## position. Used so the slide never ends (and the collider never grows)
+## while there's geometry overhead for it to grow into.
+func _can_stand_up() -> bool:
+	if not _stand_check_shape:
+		return true
+
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	if not space:
+		return true
+
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = _stand_check_shape
+	query.transform = Transform3D(
+		global_basis.orthonormalized(),
+		global_position + up_direction * (NORMAL_COLLISION_Y + STAND_CHECK_LIFT)
+	)
+	query.collision_mask = collision_mask
+	query.exclude = [get_rid()]
+
+	return space.intersect_shape(query, 1).is_empty()
+
+
+## Blocked by something while crouched under cover: hand steering back to the
+## player so they can crawl back out instead of being stuck in the slide.
+func _steer_slide_in_crawlspace() -> void:
+	var input_direction: Vector3 = _get_input_direction()
+	if input_direction.length_squared() < 0.0001:
+		return
+
+	_slide_direction = input_direction
+	_slide_elapsed = 0.0
 
 
 func _update_slide(delta: float) -> void:
@@ -625,9 +751,21 @@ func _update_slide(delta: float) -> void:
 		var lost_ground: bool = not is_on_floor() and coyote_timer <= 0.0
 		var blocked: bool = _slide_elapsed > 0.1 and get_planar_speed() < SLIDE_MIN_SPEED
 
-		if movement_locked or is_ots_mode or lost_ground or blocked:
+		# Airborne (or locked): there's no floor to clip through, so just end it.
+		if movement_locked or lost_ground:
 			_end_slide(false)
 			return
+
+		# Anything else that would end the slide only does so if the player
+		# fits at full height. Otherwise they stay crouched and keep sliding
+		# until the cover ends, instead of the collider growing into it.
+		if is_ots_mode or blocked:
+			if _can_stand_up():
+				_end_slide(false)
+				return
+
+			if blocked:
+				_steer_slide_in_crawlspace()
 
 		var downhill: float = _get_slide_downhill_factor()
 
@@ -646,7 +784,9 @@ func _update_slide(delta: float) -> void:
 			)
 			slide_timer += delta
 
-			if slide_timer >= slide_duration:
+			# Out of time, but only stand up once there's room. Until then the
+			# slide carries on at slide_end_speed.
+			if slide_timer >= slide_duration and _can_stand_up():
 				_end_slide(true)
 		return
 
@@ -682,6 +822,62 @@ func _get_slide_downhill_factor() -> float:
 		1.0
 	)
 	return steepness * alignment
+
+
+var is_crouching := false
+var _crouch_jump_grace_timer: float = 0.0
+
+
+func _can_start_crouch() -> bool:
+	return is_on_floor() and not is_sliding and not is_running and not movement_locked
+
+
+func _start_crouch() -> void:
+	is_crouching = true
+	_crouch_jump_grace_timer = 0.0
+	_refresh_collision()
+
+
+func _end_crouch(allow_jump_grace: bool) -> void:
+	is_crouching = false
+	_crouch_jump_grace_timer = CROUCH_JUMP_GRACE if allow_jump_grace else 0.0
+	_refresh_collision()
+
+
+func _update_crouch(delta: float) -> void:
+	_crouch_jump_grace_timer = maxf(_crouch_jump_grace_timer - delta, 0.0)
+
+	if not InputMap.has_action(CROUCH_ACTION):
+		return
+
+	var start_requested: bool
+	var stop_requested: bool
+
+	if crouch_is_toggle:
+		var pressed: bool = Input.is_action_just_pressed(CROUCH_ACTION)
+		start_requested = pressed
+		stop_requested = pressed
+	else:
+		var held: bool = Input.is_action_pressed(CROUCH_ACTION)
+		start_requested = held
+		stop_requested = not held
+
+	if is_crouching:
+		var lost_ground: bool = not is_on_floor() and coyote_timer <= 0.0
+
+		# Airborne (or locked): no floor to clip through, so just stand.
+		if movement_locked or lost_ground:
+			_end_crouch(false)
+			return
+
+		# Only stand up if the full-height collider fits; otherwise stay
+		# crouched until the cover ends.
+		if stop_requested and _can_stand_up():
+			_end_crouch(true)
+		return
+
+	if start_requested and _can_start_crouch():
+		_start_crouch()
 
 
 enum WallState { NONE, RUNNING, SLIDING }
@@ -1254,6 +1450,9 @@ func _get_target_speed() -> float:
 
 	if is_wall_running:
 		return _wall_run_speed
+
+	if is_crouching:
+		return crouch_speed
 
 	return lerpf(walk_speed, run_speed, run_blend)
 
