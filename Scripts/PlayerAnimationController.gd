@@ -24,6 +24,14 @@ var smoothed_locomotion_speed: float = 0.0
 var current_wall_run_lean: float = 0.0
 
 
+@export_group("Wall Run Animation")
+@export var wall_run_speed_scale_min: float = 0.25
+@export var wall_run_speed_scale_max: float = 1.25
+
+var _wall_run_time_scale_params: Dictionary = {}
+var _current_wall_run_state: String = ""
+
+
 @export_group("Landing Anticipation")
 @export var land_anim_duration: float = 0.25
 @export var landing_predict_ray_length: float = 50.0
@@ -35,6 +43,15 @@ var landing_timer: float = 0.0
 
 @export_group("Jump To Fall")
 @export var fall_anticipation_time: float = 0.1
+
+
+@export_group("Slide Exit Blending")
+## Crossfade (seconds) when the slide hands off to walking, jogging or
+## running. Written onto the tree's Slide -> BlendSpace1D transition at
+## startup. Set to -1 to leave whatever the AnimationTree editor has.
+@export var slide_to_locomotion_blend_time: float = 0.25
+## Same, for the Slide -> CrouchBlend transition.
+@export var slide_to_crouch_blend_time: float = 0.2
 
 
 enum AnimState {
@@ -52,12 +69,20 @@ enum AnimState {
 	LAND,
 	LEDGE_HANG,
 	LEDGE_CLIMB,
-	CROUCH
+	CROUCH,
+	WALL_RUN
 }
 
 const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
 
 const CROUCH_BLEND_PARAM := "parameters/CrouchBlend/blend_position"
+
+const SLIDE_STATE := "Slide"
+const LOCOMOTION_STATE := "BlendSpace1D"
+const CROUCH_STATE := "CrouchBlend"
+const WALL_RUN_LEFT_STATE := "WallRunLeft"
+const WALL_RUN_RIGHT_STATE := "WallRunRight"
+const WALL_RUN_TIME_SCALE_NODE := "TimeScale"
 
 var current_anim_state := AnimState.IDLE
 var was_on_floor := true
@@ -99,6 +124,8 @@ func _ready() -> void:
 		)
 		return
 
+	_setup_wall_run_time_scale()
+
 	animation_tree.active = true
 
 	anim_playback = animation_tree.get(
@@ -110,6 +137,8 @@ func _ready() -> void:
 			"PlayerAnimationController: 'parameters/playback' came back null -- "
 			+ "Tree Root probably isn't an AnimationNodeStateMachine"
 		)
+
+	_apply_slide_blend_times()
 
 	mesh_instances.clear()
 
@@ -142,6 +171,129 @@ func _travel_if_present(state_name: String) -> void:
 	anim_playback.travel(state_name)
 
 
+## How long travel() crossfades between two states is the xfade_time on the
+## transition between them, and it defaults to 0 -- a hard cut. Nothing in
+## this script ever set it, which is why leaving the slide looked immediate.
+## Set it here so it doesn't have to be dialled in by hand in the editor.
+func _apply_slide_blend_times() -> void:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if not machine:
+		return
+
+	var found_locomotion := false
+	var found_crouch := false
+
+	for i in machine.get_transition_count():
+		if machine.get_transition_from(i) != SLIDE_STATE:
+			continue
+
+		var to_state: StringName = machine.get_transition_to(i)
+		var transition: AnimationNodeStateMachineTransition = machine.get_transition(i)
+
+		if to_state == LOCOMOTION_STATE:
+			found_locomotion = true
+			if slide_to_locomotion_blend_time >= 0.0:
+				transition.xfade_time = slide_to_locomotion_blend_time
+		elif to_state == CROUCH_STATE:
+			found_crouch = true
+			if slide_to_crouch_blend_time >= 0.0:
+				transition.xfade_time = slide_to_crouch_blend_time
+
+	# Without a direct transition, travel() routes through whatever states
+	# do connect, so the exit blends through them instead of straight across.
+	if machine.has_node(LOCOMOTION_STATE) and not found_locomotion:
+		push_warning(
+			"PlayerAnimationController: no direct '%s' -> '%s' transition in the AnimationTree; "
+			% [SLIDE_STATE, LOCOMOTION_STATE]
+			+ "leaving the slide into walk/run won't blend cleanly."
+		)
+
+	if machine.has_node(CROUCH_STATE) and not found_crouch:
+		push_warning(
+			"PlayerAnimationController: no direct '%s' -> '%s' transition in the AnimationTree; "
+			% [SLIDE_STATE, CROUCH_STATE]
+			+ "leaving the slide into a crouch won't blend cleanly."
+		)
+
+
+## Keeps both ground blend spaces positioned at the current speed. Called
+## while sliding (when neither is the active state) so whichever one the slide
+## hands off to is already at the right position when the crossfade begins.
+func _push_blend_positions() -> void:
+	animation_tree.set(LOCOMOTION_BLEND_PARAM, smoothed_locomotion_speed)
+	animation_tree.set(CROUCH_BLEND_PARAM, smoothed_locomotion_speed)
+
+
+func _setup_wall_run_time_scale() -> void:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if not machine:
+		return
+
+	for state_name in [WALL_RUN_LEFT_STATE, WALL_RUN_RIGHT_STATE]:
+		_setup_state_time_scale(machine, state_name)
+
+
+func _setup_state_time_scale(machine: AnimationNodeStateMachine, state_name: String) -> void:
+	if not machine.has_node(state_name):
+		return
+
+	var state_node: AnimationNode = machine.get_node(state_name)
+	var param: String = "parameters/%s/%s/scale" % [state_name, WALL_RUN_TIME_SCALE_NODE]
+
+	if state_node is AnimationNodeBlendTree:
+		var existing_tree := state_node as AnimationNodeBlendTree
+
+		if existing_tree.has_node(WALL_RUN_TIME_SCALE_NODE):
+			_wall_run_time_scale_params[state_name] = param
+		else:
+			push_warning(
+				"PlayerAnimationController: '%s' is a blend tree with no '%s' node -- "
+				% [state_name, WALL_RUN_TIME_SCALE_NODE]
+				+ "add an AnimationNodeTimeScale with that name to control its speed."
+			)
+		return
+
+	if not state_node is AnimationNodeAnimation:
+		push_warning(
+			"PlayerAnimationController: '%s' is a %s -- can't add speed control to it."
+			% [state_name, state_node.get_class()]
+		)
+		return
+
+	var blend_tree := AnimationNodeBlendTree.new()
+	blend_tree.add_node("Animation", state_node, Vector2(-300.0, 0.0))
+	blend_tree.add_node(WALL_RUN_TIME_SCALE_NODE, AnimationNodeTimeScale.new(), Vector2(0.0, 0.0))
+	blend_tree.connect_node(WALL_RUN_TIME_SCALE_NODE, 0, "Animation")
+	blend_tree.connect_node("output", 0, WALL_RUN_TIME_SCALE_NODE)
+
+	machine.replace_node(state_name, blend_tree)
+
+	_wall_run_time_scale_params[state_name] = param
+
+
+func _get_wall_run_state_name() -> String:
+	return WALL_RUN_RIGHT_STATE if player.wall_side > 0 else WALL_RUN_LEFT_STATE
+
+
+func _get_wall_run_target_time_scale() -> float:
+	var reference_speed: float = maxf(player.wall_run_speed, 0.001)
+
+	return clampf(
+		smoothed_locomotion_speed / reference_speed,
+		wall_run_speed_scale_min,
+		wall_run_speed_scale_max
+	)
+
+
+func _apply_wall_run_time_scale() -> void:
+	var param: String = _wall_run_time_scale_params.get(_current_wall_run_state, "")
+	if param.is_empty():
+		return
+
+	animation_tree.set(
+		param,
+		_get_wall_run_target_time_scale()
+	)
 func _find_first_of_type(root: Node, type_name: String) -> Node:
 	for child in root.get_children():
 		if child.is_class(type_name):
@@ -308,6 +460,7 @@ func update(delta: float) -> void:
 		and not land_anim_active
 		and not player.is_wall_sliding
 		and not player.is_wall_running
+		and not player.is_sliding
 	):
 		if _predict_landing_within(land_anim_duration):
 
@@ -317,7 +470,7 @@ func update(delta: float) -> void:
 
 			anim_playback.travel("Land")
 
-	if !was_on_floor and on_floor and not land_anim_active:
+	if !was_on_floor and on_floor and not land_anim_active and not player.is_sliding:
 
 		land_anim_active = true
 		current_anim_state = AnimState.LAND
@@ -348,9 +501,10 @@ func update(delta: float) -> void:
 
 			current_anim_state = AnimState.SLIDE
 
-			anim_playback.travel("Slide")
+			anim_playback.travel(SLIDE_STATE)
 
 		_update_locomotion_speed(delta)
+		_push_blend_positions()
 
 		return
 
@@ -394,15 +548,17 @@ func update(delta: float) -> void:
 
 		if player.is_wall_running:
 
-			if current_anim_state != AnimState.RUN:
+			var wall_run_state: String = _get_wall_run_state_name()
 
-				current_anim_state = AnimState.RUN
+			if current_anim_state != AnimState.WALL_RUN or _current_wall_run_state != wall_run_state:
 
-				anim_playback.travel(
-					"BlendSpace1D"
-				)
+				current_anim_state = AnimState.WALL_RUN
+				_current_wall_run_state = wall_run_state
+
+				_travel_if_present(wall_run_state)
 
 			_update_locomotion_speed(delta)
+			_apply_wall_run_time_scale()
 
 			animation_tree.set(
 				LOCOMOTION_BLEND_PARAM,
@@ -442,19 +598,21 @@ func update(delta: float) -> void:
 	was_sliding = false
 
 	if player.is_crouching:
-		if current_anim_state != AnimState.CROUCH:
-			current_anim_state = AnimState.CROUCH
-			_travel_if_present("CrouchBlend")
-
 		_update_locomotion_speed(delta)
 
+		# Position the blend space before travelling into it so the
+		# crossfade starts from the right pose.
 		animation_tree.set(
-			"parameters/CrouchBlend/blend_position",
+			CROUCH_BLEND_PARAM,
 			smoothed_locomotion_speed
 		)
 
+		if current_anim_state != AnimState.CROUCH:
+			current_anim_state = AnimState.CROUCH
+			_travel_if_present(CROUCH_STATE)
+
 		return
-	
+
 	var was_grounded_locomotion := current_anim_state in [
 		AnimState.IDLE,
 		AnimState.JOG,
@@ -473,18 +631,20 @@ func update(delta: float) -> void:
 
 		current_anim_state = AnimState.JOG
 
-	if not was_grounded_locomotion:
-
-		anim_playback.travel(
-			"BlendSpace1D"
-		)
-
 	_update_locomotion_speed(delta)
 
+	# Position the blend space before travelling into it so the crossfade
+	# (out of the slide, crouch, a jump...) starts from the right pose.
 	animation_tree.set(
 		LOCOMOTION_BLEND_PARAM,
 		smoothed_locomotion_speed
 	)
+
+	if not was_grounded_locomotion:
+
+		anim_playback.travel(
+			LOCOMOTION_STATE
+		)
 
 
 func _update_locomotion_speed(delta: float) -> void:

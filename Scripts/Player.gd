@@ -139,6 +139,10 @@ var landing_brake_timer: float = 0.0
 ## How long the slide survives while airborne (bumps, crests, small drops)
 ## before it ends. Slide jumps stay available during this window.
 @export var slide_air_grace: float = 0.3
+## Walking up a slope that's too steep to stand on (steeper than the body's
+## normal floor limit, up to slide_floor_max_angle_deg) puts you in a slide
+## back down it.
+@export var slide_from_steep_slopes: bool = true
 
 
 @export_group("Crouch")
@@ -177,6 +181,9 @@ const SLIDE_MIN_SPEED := 1.0
 ## On surfaces steeper than the body's normal floor limit, the slide ends if
 ## it is heading up them (dot with the downhill direction below this value).
 const SLIDE_STEEP_UPHILL_LIMIT := -0.2
+## How directly the player has to be pushing up a too-steep slope (dot of
+## the input with the uphill direction) before it counts as an attempt to climb it.
+const STEEP_SLOPE_PUSH_THRESHOLD := 0.3
 ## Lifts the standing-height overlap test slightly off the floor so the
 ## ground the player is already touching doesn't count as an obstruction.
 const STAND_CHECK_LIFT := 0.04
@@ -378,6 +385,7 @@ func _physics_process(delta: float) -> void:
 		var up_speed_before: float = velocity.dot(up_direction)
 		move_and_slide()
 		_limit_unearned_rise(up_speed_before)
+		_try_steep_slope_slide()
 
 	aim_pivot.global_position = get_body_center()
 	spring_arm.update_pivot_position(delta)
@@ -615,6 +623,7 @@ func _handle_jump(_delta: float) -> void:
 		if is_sliding or _slide_jump_grace_timer > 0.0:
 			_start_jump(JumpKind.SLIDE, _slide_direction * maxf(slide_jump_speed, _slide_speed))
 			_end_slide(false)
+			_end_crouch(false)
 		elif is_crouching or _crouch_jump_grace_timer > 0.0:
 			_start_jump(JumpKind.CROUCH)
 			_end_crouch(false)
@@ -686,7 +695,11 @@ func _start_slide() -> void:
 	if heading.length_squared() < 0.0001:
 		return
 
-	_slide_direction = heading.normalized()
+	_begin_slide(heading.normalized())
+
+
+func _begin_slide(direction: Vector3) -> void:
+	_slide_direction = direction
 	is_sliding = true
 	slide_timer = 0.0
 	_slide_speed = slide_speed
@@ -803,6 +816,89 @@ func _steer_slide_in_crawlspace() -> void:
 	_slide_elapsed = 0.0
 
 
+## Slide and Crouch are treated as one pair of buttons: either one starts a
+## slide when you're at slide speed, and either one holds the crouch.
+func _crouch_slide_pressed() -> bool:
+	if Input.is_action_just_pressed("Slide"):
+		return true
+
+	return InputMap.has_action(CROUCH_ACTION) and Input.is_action_just_pressed(CROUCH_ACTION)
+
+
+func _crouch_slide_held() -> bool:
+	if Input.is_action_pressed("Slide"):
+		return true
+
+	return InputMap.has_action(CROUCH_ACTION) and Input.is_action_pressed(CROUCH_ACTION)
+
+
+## The slide ran its course. If the slide/crouch button is still held, drop
+## straight into a crouch instead of standing up. (Jumping out of the slide,
+## losing the ground, or entering OTS mode use _end_slide() directly and never
+## crouch.) The crouch starts before the slide ends so the short collider
+## never grows for a frame in between.
+func _finish_slide(allow_jump_grace: bool) -> void:
+	var stay_low: bool = (
+		is_on_floor()
+		and InputMap.has_action(CROUCH_ACTION)
+		and _crouch_slide_held()
+	)
+
+	if stay_low:
+		is_running = false
+		run_timer = 0.0
+		_start_crouch()
+
+	_end_slide(allow_jump_grace)
+
+
+## Attempting to walk up a slope too steep to stand on (steeper than the
+## body's normal floor limit, but within what the slide can grip) puts the
+## player into a slide back down it.
+func _try_steep_slope_slide() -> void:
+	if not slide_from_steep_slopes:
+		return
+
+	if is_sliding or movement_locked or is_ots_mode or wall_state != WallState.NONE:
+		return
+
+	if jump_phase == JumpPhase.RISING:
+		return
+
+	var input_direction: Vector3 = _get_input_direction()
+	if input_direction.length_squared() < 0.0001:
+		return
+
+	var steepest_walkable: float = _default_floor_max_angle
+	var steepest_gripped: float = deg_to_rad(slide_floor_max_angle_deg)
+
+	for i in get_slide_collision_count():
+		var collision: KinematicCollision3D = get_slide_collision(i)
+		var normal: Vector3 = collision.get_normal()
+		var angle: float = acos(clampf(normal.dot(up_direction), -1.0, 1.0))
+
+		if angle <= steepest_walkable or angle > steepest_gripped:
+			continue
+
+		# The contact has to be down at the feet (walking into or standing on
+		# the slope), not the upper body brushing it mid-jump.
+		var contact_height: float = (collision.get_position() - global_position).dot(up_direction)
+		if contact_height > NORMAL_COLLISION_HEIGHT * 0.5:
+			continue
+
+		var downhill: Vector3 = normal.slide(up_direction)
+		if downhill.length_squared() < 0.0001:
+			continue
+		downhill = downhill.normalized()
+
+		# Only when pushing up the slope, not along or away from it.
+		if input_direction.dot(downhill) > -STEEP_SLOPE_PUSH_THRESHOLD:
+			continue
+
+		_begin_slide(downhill)
+		return
+
+
 func _update_slide(delta: float) -> void:
 
 	_slide_jump_grace_timer = maxf(_slide_jump_grace_timer - delta, 0.0)
@@ -839,7 +935,10 @@ func _update_slide(delta: float) -> void:
 		# until the cover ends, instead of the collider growing into it.
 		if is_ots_mode or blocked:
 			if _can_stand_up():
-				_end_slide(false)
+				if blocked and not is_ots_mode:
+					_finish_slide(false)
+				else:
+					_end_slide(false)
 				return
 
 			if blocked:
@@ -873,10 +972,10 @@ func _update_slide(delta: float) -> void:
 			# Out of time, but only stand up once there's room. Until then the
 			# slide carries on at slide_end_speed.
 			if slide_timer >= slide_duration and _can_stand_up():
-				_end_slide(true)
+				_finish_slide(true)
 		return
 
-	if Input.is_action_just_pressed("Slide") and _can_start_slide():
+	if _crouch_slide_pressed() and _can_start_slide():
 		_start_slide()
 
 
@@ -914,8 +1013,9 @@ var is_crouching := false
 var _crouch_jump_grace_timer: float = 0.0
 
 
+## Crouch unless you're at the speed where the same button would start a slide.
 func _can_start_crouch() -> bool:
-	return is_on_floor() and not is_sliding and not is_running and not movement_locked
+	return is_on_floor() and not is_sliding and not movement_locked and not _can_start_slide()
 
 
 func _start_crouch() -> void:
@@ -940,11 +1040,11 @@ func _update_crouch(delta: float) -> void:
 	var stop_requested: bool
 
 	if crouch_is_toggle:
-		var pressed: bool = Input.is_action_just_pressed(CROUCH_ACTION)
+		var pressed: bool = _crouch_slide_pressed()
 		start_requested = pressed
 		stop_requested = pressed
 	else:
-		var held: bool = Input.is_action_pressed(CROUCH_ACTION)
+		var held: bool = _crouch_slide_held()
 		start_requested = held
 		stop_requested = not held
 
