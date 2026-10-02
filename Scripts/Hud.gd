@@ -44,6 +44,14 @@ var speed_lines_intensity: float = 0.0
 ## progress or all slides are used up.
 @export var wall_slide_indicator: Control
 
+# ============================================================
+# TOOLTIP
+# ============================================================
+@export_group("Tooltip")
+## Any Control. Toggled shown/hidden each time the "DismissToolTip"
+## input action is pressed. Its visibility in the editor is its starting state.
+@export var tooltip_item: Control
+
 
 func _ready() -> void:
 	if shift_power_bar:
@@ -55,6 +63,16 @@ func _process(delta: float) -> void:
 	update_wall_indicators()
 	if Cam_controller == null or player_cam == null:
 		return
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("DismissToolTip"):
+		if tooltip_item:
+			tooltip_item.visible = not tooltip_item.visible
+		get_viewport().set_input_as_handled()
+
+	elif event.is_action_pressed("CloseGame"):
+		get_tree().quit()
 
 
 func update_graphics(delta: float) -> void:

@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://crba2plgivawf" path="res://Scripts/camera_spring_arm.gd" id="10_ygj5d"]
 [ext_resource type="Script" uid="uid://3ndckspc1ev0" path="res://Scripts/Hud.gd" id="11_qgcyd"]
 [ext_resource type="Texture2D" uid="uid://dahlfjhvsky0q" path="res://Player/MouseCrosshair.png" id="12_swt3j"]
+[ext_resource type="Texture2D" uid="uid://cewgsvqrrkeoe" path="res://Player/Crosshair.png" id="12_xah7b"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_a22an"]
 radius = 0.23583984
@@ -22,7 +23,7 @@ animation = &"Idle"
 [sub_resource type="AnimationNodeAnimation" id="AnimationNodeAnimation_hkcx0"]
 animation = &"Walk"
 use_custom_timeline = true
-timeline_length = 0.55
+timeline_length = 0.45
 stretch_time_scale = true
 start_offset = 0.0
 loop_mode = 1
@@ -206,7 +207,13 @@ advance_mode = 0
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_1dcca"]
 advance_mode = 0
 
+[sub_resource type="Curve" id="Curve_0cwic"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_yler1"]
+xfade_time = 2.0
+xfade_curve = SubResource("Curve_0cwic")
 advance_mode = 0
 
 [sub_resource type="AnimationNodeStateMachineTransition" id="AnimationNodeStateMachineTransition_e7vp1"]
@@ -281,7 +288,7 @@ states/WallKick/position = Vector2(799, 82)
 states/WallSlide/node = SubResource("AnimationNodeAnimation_xah7b")
 states/WallSlide/position = Vector2(768, -2)
 transitions = ["Fall", "Land", SubResource("AnimationNodeStateMachineTransition_ps8ct"), "Jump", "Fall", SubResource("AnimationNodeStateMachineTransition_7uipr"), "Start", "BlendSpace1D", SubResource("AnimationNodeStateMachineTransition_7v5gs"), "BlendSpace1D", "Fall", SubResource("AnimationNodeStateMachineTransition_8sa4y"), "BlendSpace1D", "Jump", SubResource("AnimationNodeStateMachineTransition_3nb2p"), "Land", "BlendSpace1D", SubResource("AnimationNodeStateMachineTransition_d7xyo"), "TripleJump", "Fall", SubResource("AnimationNodeStateMachineTransition_4b3p2"), "Jump", "DoubleJump", SubResource("AnimationNodeStateMachineTransition_438ru"), "DoubleJump", "Fall", SubResource("AnimationNodeStateMachineTransition_dywd4"), "DoubleJump", "TripleJump", SubResource("AnimationNodeStateMachineTransition_1ldg3"), "Jump", "WallSlide", SubResource("AnimationNodeStateMachineTransition_ndxvi"), "Fall", "WallSlide", SubResource("AnimationNodeStateMachineTransition_0cwic"), "WallSlide", "Land", SubResource("AnimationNodeStateMachineTransition_1dcca"), "Slide", "BlendSpace1D", SubResource("AnimationNodeStateMachineTransition_yler1"), "DoubleJump", "WallSlide", SubResource("AnimationNodeStateMachineTransition_e7vp1"), "TripleJump", "WallSlide", SubResource("AnimationNodeStateMachineTransition_xah7b"), "Slide", "JumpOutOfSlide", SubResource("AnimationNodeStateMachineTransition_rmw6d"), "JumpOutOfSlide", "BlendSpace1D", SubResource("AnimationNodeStateMachineTransition_pyur5"), "BlendSpace1D", "LedgeHang", SubResource("AnimationNodeStateMachineTransition_55u2m"), "LedgeHang", "LedgeClimb", SubResource("AnimationNodeStateMachineTransition_8fo2w"), "LedgeClimb", "BlendSpace1D", SubResource("AnimationNodeStateMachineTransition_ygj5d"), "WallSlide", "WallKick", SubResource("AnimationNodeStateMachineTransition_qgcyd"), "WallKick", "BlendSpace1D", SubResource("AnimationNodeStateMachineTransition_swt3j"), "BlendSpace1D", "WallKick", SubResource("AnimationNodeStateMachineTransition_dd2qu"), "BlendSpace1D", "CrouchBlend", SubResource("AnimationNodeStateMachineTransition_v2ubv"), "CrouchBlend", "BlendSpace1D", SubResource("AnimationNodeStateMachineTransition_45lrv"), "CrouchBlend", "Jump", SubResource("AnimationNodeStateMachineTransition_njwke"), "Start", "CrouchBlend", SubResource("AnimationNodeStateMachineTransition_7h1wl")]
-graph_offset = Vector2(3, 248)
+graph_offset = Vector2(29, 126)
 
 [sub_resource type="Shader" id="Shader_ebq1t"]
 code = "shader_type canvas_item;
@@ -372,13 +379,13 @@ slide_on_ceiling = false
 script = ExtResource("1_v2ubv")
 animation_controller = NodePath("AnimationController")
 rotation_pivot = NodePath("CenterCameraFocus&RotationPivot")
-walk_speed = 1.5
+walk_speed = 3.0
 run_speed = 9.0
 max_landing_speed = 20.0
 slide_speed = 20.0
 slide_duration = 1.0
 slide_jump_height = 4.3
-slide_max_speed = 25.0
+slide_max_speed = 40.0
 crouch_speed = 1.0
 crouch_jump_height = 8.0
 wall_run_max_time = 2.0
@@ -418,13 +425,15 @@ max_held_objects = 20
 object_spacing = 0.1
 formation_vertical_spacing = 0.1
 pull_in_time = 0.2
+hold_smoothing_time = 0.04
 max_hold_speed = 40.0
+hold_break_distance = 5.0
 pickup_snap_distance = 1.0
 rotation_freeze_time = 0.8
 hold_spin_speed_deg = 50.0
 bob_amplitude = 0.6
 bob_frequency = 0.1
-gravity_meter_cost = 10.0
+gravity_meter_cost = 0.0
 
 [node name="ParticleController" type="Node" parent="Player" unique_id=118114213]
 script = ExtResource("6_rmw6d")
@@ -705,7 +714,7 @@ shape = SubResource("CapsuleShape3D_a22an")
 root_node = NodePath("../CharacterModel/Madchild")
 tree_root = SubResource("AnimationNodeStateMachine_gnc57")
 anim_player = NodePath("../CharacterModel/Madchild/AnimationPlayer")
-parameters/BlendSpace1D/blend_position = -1.259542
+parameters/BlendSpace1D/blend_position = -0.74380165
 parameters/CrouchBlend/blend_position = -1.016529
 
 [node name="CenterCameraFocus&RotationPivot" type="Node3D" parent="Player" unique_id=2016571143]
@@ -747,7 +756,7 @@ far = 500000.0
 
 [node name="GroundRayOrigin" type="Marker3D" parent="Player" unique_id=1519260741]
 
-[node name="Hud" type="Control" parent="." unique_id=58564902 node_paths=PackedStringArray("Cam_controller", "player_cam", "boresight", "mouse_pos", "shift_power_bar", "player", "speed_lines", "look_at_target", "wall_run_indicator", "wall_slide_indicator")]
+[node name="Hud" type="Control" parent="." unique_id=58564902 node_paths=PackedStringArray("Cam_controller", "player_cam", "boresight", "mouse_pos", "shift_power_bar", "player", "speed_lines", "look_at_target", "wall_run_indicator", "wall_slide_indicator", "tooltip_item")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -769,6 +778,7 @@ look_at_target = NodePath("../Player/CharacterModel/Madchild/rig/Skeleton3D/Look
 speed_lines_start_ratio = 0.1
 wall_run_indicator = NodePath("WallShift")
 wall_slide_indicator = NodePath("WallRun")
+tooltip_item = NodePath("Label")
 
 [node name="SpeedLines" type="ColorRect" parent="Hud" unique_id=450795435]
 material = SubResource("ShaderMaterial_g4v7s")
@@ -826,6 +836,7 @@ offset_right = 20.0
 offset_bottom = 20.0
 grow_horizontal = 2
 grow_vertical = 2
+texture = ExtResource("12_xah7b")
 metadata/_edit_use_anchors_ = true
 
 [node name="TextureProgressBar" type="TextureProgressBar" parent="Hud" unique_id=1012235475]
@@ -837,16 +848,26 @@ texture_progress = ExtResource("12_swt3j")
 
 [node name="Label" type="Label" parent="Hud" unique_id=1255603557]
 layout_mode = 0
-offset_right = 40.0
-offset_bottom = 23.0
-text = "Space to Jump & DoubleJump
+offset_right = 585.0
+offset_bottom = 335.0
+text = "Q to Hide/Show this tool-tip
+
+---=\\\\MOVEMENT//=---
+Space to Jump & DoubleJump
 Shift to Run
-Right click while running to Slide
-Jump while Sliding to Slidejump
-Ctrl to Crouch & Crouch Jump 
+Right click while running to slide
+Jump while sliding to slide-jump
+Ctrl to crouch & crouch-jump 
 Run along wall to wall run
-Jump into wall to Wall Slide
-Jump against wall to Wall Kick"
+Jump into wall to wall slide
+Jump against wall to wall kick
+
+---=\\\\ESPER POWERS//=---
+Hold Left Click on objects to pick up
+Left Click to fire objects
+
+
+ESC to close game"
 
 [node name="AimPivot" type="Node3D" parent="." unique_id=459254644]
 transform = Transform3D(0.010000001, 0, 0, 0, -1.1920932e-09, -0.010000002, 0, 0.010000002, -1.1920932e-09, 0, 1, 0.01)

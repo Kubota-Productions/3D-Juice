@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://cfahswakqqjl0"]
+
+[ext_resource type="PackedScene" uid="uid://dyswygxq2yv58" path="res://Assets/spoon.glb" id="1_w0240"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_g4v7s"]
+size = Vector3(0.45, 0.05, 0.1)
+
+[node name="Spoon" type="RigidBody3D" unique_id=1130228868 groups=["tktarget"]]
+continuous_cd = true
+
+[node name="spoon" parent="." unique_id=396358048 instance=ExtResource("1_w0240")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1587996304]
+shape = SubResource("BoxShape3D_g4v7s")

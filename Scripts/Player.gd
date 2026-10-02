@@ -127,6 +127,18 @@ var landing_brake_timer: float = 0.0
 @export var slide_slope_acceleration: float = 14.0
 @export var slide_slope_min_angle_deg: float = 8.0
 @export var slide_slope_full_angle_deg: float = 35.0
+## While sliding, surfaces up to this steep still count as floor (the
+## CharacterBody3D default of 45 degrees is what used to drop the player off
+## steeper slopes). Never lowers the body's own floor_max_angle.
+@export_range(0.0, 89.0) var slide_floor_max_angle_deg: float = 75.0
+## While sliding, how far the body will snap back down to the surface after
+## a frame of moving off it. At speed on a downhill the ground drops away
+## faster than the default snap (0.1) can follow, so the player went
+## airborne. Never lowers the body's own floor_snap_length.
+@export var slide_floor_snap_length: float = 0.5
+## How long the slide survives while airborne (bumps, crests, small drops)
+## before it ends. Slide jumps stay available during this window.
+@export var slide_air_grace: float = 0.3
 
 
 @export_group("Crouch")
@@ -162,6 +174,9 @@ var landing_brake_timer: float = 0.0
 
 const SLIDE_JUMP_GRACE := 0.15
 const SLIDE_MIN_SPEED := 1.0
+## On surfaces steeper than the body's normal floor limit, the slide ends if
+## it is heading up them (dot with the downhill direction below this value).
+const SLIDE_STEEP_UPHILL_LIMIT := -0.2
 ## Lifts the standing-height overlap test slightly off the floor so the
 ## ground the player is already touching doesn't count as an obstruction.
 const STAND_CHECK_LIFT := 0.04
@@ -280,6 +295,9 @@ var prev_model_forward: Vector3 = Vector3.FORWARD
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+	_default_floor_max_angle = floor_max_angle
+	_default_floor_snap_length = floor_snap_length
 
 	model_yaw_basis = character_model.global_basis
 	model_base_scale = character_model.scale
@@ -437,10 +455,14 @@ func _update_ground_state(delta: float) -> void:
 			_trigger_landing_squash(_last_air_fall_speed)
 		_last_air_fall_speed = 0.0
 
-		if not was_grounded_last_frame and planar_velocity.length() > max_landing_speed:
+		if not was_grounded_last_frame and not is_sliding and planar_velocity.length() > max_landing_speed:
 			landing_brake_timer = landing_brake_time
 
-		if landing_brake_timer > 0.0:
+		# A slide re-touching the ground at speed is not a hard landing; the
+		# brake would drag it down to max_landing_speed.
+		if is_sliding:
+			landing_brake_timer = 0.0
+		elif landing_brake_timer > 0.0:
 			landing_brake_timer -= delta
 
 			if planar_velocity.length() > max_landing_speed:
@@ -646,6 +668,13 @@ var _slide_direction: Vector3 = Vector3.ZERO
 var _slide_jump_grace_timer: float = 0.0
 var _slide_speed: float = 0.0
 var _slide_elapsed: float = 0.0
+var _slide_air_time: float = 0.0
+var _slide_last_downhill: float = 0.0
+
+## The body's own floor settings, cached in _ready so the slide can raise
+## them temporarily and put them back afterwards.
+var _default_floor_max_angle: float = 0.785398
+var _default_floor_snap_length: float = 0.1
 
 
 func _can_start_slide() -> bool:
@@ -662,7 +691,10 @@ func _start_slide() -> void:
 	slide_timer = 0.0
 	_slide_speed = slide_speed
 	_slide_elapsed = 0.0
+	_slide_air_time = 0.0
+	_slide_last_downhill = 0.0
 	_slide_jump_grace_timer = 0.0
+	landing_brake_timer = 0.0
 	_refresh_collision()
 
 
@@ -681,8 +713,38 @@ func _cancel_slide() -> void:
 
 
 ## The short collider is used whenever the player is sliding OR crouching.
+## Also swaps the body's floor settings, which only the slide changes.
 func _refresh_collision() -> void:
 	_set_short_collision(is_sliding or is_crouching)
+	_apply_slide_floor_settings()
+
+
+func _apply_slide_floor_settings() -> void:
+	if is_sliding:
+		floor_max_angle = maxf(_default_floor_max_angle, deg_to_rad(slide_floor_max_angle_deg))
+		floor_snap_length = maxf(_default_floor_snap_length, slide_floor_snap_length)
+	else:
+		floor_max_angle = _default_floor_max_angle
+		floor_snap_length = _default_floor_snap_length
+
+
+## True when the slide is heading up a surface that only counts as floor
+## because of the slide's raised floor angle (i.e. steeper than the body's
+## normal limit). Without this the slide would run up steep walls.
+func _slide_climbing_steep_slope() -> bool:
+	if not is_on_floor():
+		return false
+
+	var floor_normal: Vector3 = get_floor_normal()
+	var angle: float = acos(clampf(floor_normal.dot(up_direction), -1.0, 1.0))
+	if angle <= _default_floor_max_angle:
+		return false
+
+	var downhill: Vector3 = floor_normal.slide(up_direction)
+	if downhill.length_squared() < 0.0001:
+		return false
+
+	return _slide_direction.dot(downhill.normalized()) < SLIDE_STEEP_UPHILL_LIMIT
 
 
 func _set_short_collision(short: bool) -> void:
@@ -748,13 +810,29 @@ func _update_slide(delta: float) -> void:
 	if is_sliding:
 		_slide_elapsed += delta
 
-		var lost_ground: bool = not is_on_floor() and coyote_timer <= 0.0
-		var blocked: bool = _slide_elapsed > 0.1 and get_planar_speed() < SLIDE_MIN_SPEED
+		if is_on_floor():
+			_slide_air_time = 0.0
+		else:
+			_slide_air_time += delta
 
-		# Airborne (or locked): there's no floor to clip through, so just end it.
+		# The old check used the 0.15s coyote timer, which a fast downhill
+		# slide easily outlasts. The slide now gets its own, longer grace.
+		var lost_ground: bool = _slide_air_time > slide_air_grace
+		var blocked: bool = (
+			(_slide_elapsed > 0.1 and get_planar_speed() < SLIDE_MIN_SPEED)
+			or _slide_climbing_steep_slope()
+		)
+
+		# Airborne too long (or locked): there's no floor to clip through, so just end it.
 		if movement_locked or lost_ground:
 			_end_slide(false)
 			return
+
+		# Still inside the air grace: keep the slide jump available (the
+		# jump logic keys off the coyote timer), without extending it
+		# past the end of the grace.
+		if not is_on_floor():
+			coyote_timer = maxf(coyote_timer, delta)
 
 		# Anything else that would end the slide only does so if the player
 		# fits at full height. Otherwise they stay crouched and keep sliding
@@ -768,6 +846,14 @@ func _update_slide(delta: float) -> void:
 				_steer_slide_in_crawlspace()
 
 		var downhill: float = _get_slide_downhill_factor()
+
+		# Airborne for a frame or two on a slope: keep the last downhill
+		# boost instead of treating it as flat ground (which would bleed
+		# speed and run down the slide timer).
+		if is_on_floor():
+			_slide_last_downhill = downhill
+		else:
+			downhill = _slide_last_downhill
 
 		if downhill > 0.0:
 			_slide_speed = move_toward(
