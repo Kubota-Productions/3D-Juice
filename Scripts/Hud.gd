@@ -176,7 +176,7 @@ func _is_wall_run_available() -> bool:
 	if player.is_wall_running:
 		return false
 
-	return player._wall_runs_used < player.max_wall_runs
+	return player._wall_moves_used < player.max_wall_moves
 
 
 ## Same rules as the wall run, using the slide's own counter and limit.
@@ -187,4 +187,4 @@ func _is_wall_slide_available() -> bool:
 	if player.is_wall_sliding:
 		return false
 
-	return player._wall_slides_used < player.max_wall_slides
+	return player._wall_moves_used < player.max_wall_moves

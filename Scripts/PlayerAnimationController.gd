@@ -54,6 +54,15 @@ var landing_timer: float = 0.0
 @export var slide_to_crouch_blend_time: float = 0.2
 
 
+@export_group("Dive Blending")
+## Crossfade (seconds) into the dive from any airborne state. Written onto
+## every transition into Dive at startup, and missing ones are added. Set to
+## -1 to leave existing transitions as the AnimationTree editor has them.
+@export var into_dive_blend_time: float = 0.15
+## Crossfade (seconds) from the dive into the slide it lands in.
+@export var dive_to_slide_blend_time: float = 0.1
+
+
 enum AnimState {
 	IDLE,
 	JOG,
@@ -70,7 +79,8 @@ enum AnimState {
 	LEDGE_HANG,
 	LEDGE_CLIMB,
 	CROUCH,
-	WALL_RUN
+	WALL_RUN,
+	DIVE
 }
 
 const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
@@ -82,7 +92,19 @@ const LOCOMOTION_STATE := "BlendSpace1D"
 const CROUCH_STATE := "CrouchBlend"
 const WALL_RUN_LEFT_STATE := "WallRunLeft"
 const WALL_RUN_RIGHT_STATE := "WallRunRight"
+const DIVE_STATE := "Dive"
 const WALL_RUN_TIME_SCALE_NODE := "TimeScale"
+
+## Every state the player can be in when a dive starts.
+const DIVE_ENTRY_STATES: Array[String] = [
+	"Fall",
+	"Jump",
+	"DoubleJump",
+	"TripleJump",
+	"WallKick",
+	"JumpOutOfSlide",
+	"Land"
+]
 
 var current_anim_state := AnimState.IDLE
 var was_on_floor := true
@@ -125,6 +147,7 @@ func _ready() -> void:
 		return
 
 	_setup_wall_run_time_scale()
+	_setup_dive_transitions()
 
 	animation_tree.active = true
 
@@ -168,7 +191,36 @@ func _travel_if_present(state_name: String) -> void:
 			)
 		return
 
-	anim_playback.travel(state_name)
+	# travel() takes the shortest route through any transitions it's allowed
+	# to use, and plays every state along the way. Most of the direct
+	# transitions in the tree are disabled (Fall -> Land, for one), so a
+	# landing used to be routed Fall -> Dive -> Land and played the dive on the
+	# way. Only travel when there's a direct transition; otherwise jump
+	# straight to the state instead of detouring through others.
+	var current: StringName = anim_playback.get_current_node()
+
+	if current == StringName(state_name) or _has_direct_transition(machine, current, state_name):
+		anim_playback.travel(state_name)
+	else:
+		anim_playback.start(state_name)
+
+
+func _has_direct_transition(
+	machine: AnimationNodeStateMachine,
+	from_state: StringName,
+	to_state: StringName
+) -> bool:
+	if not machine:
+		return true
+
+	for i in machine.get_transition_count():
+		if machine.get_transition_from(i) != from_state or machine.get_transition_to(i) != to_state:
+			continue
+
+		var transition: AnimationNodeStateMachineTransition = machine.get_transition(i)
+		return transition.advance_mode != AnimationNodeStateMachineTransition.ADVANCE_MODE_DISABLED
+
+	return false
 
 
 ## How long travel() crossfades between two states is the xfade_time on the
@@ -214,6 +266,49 @@ func _apply_slide_blend_times() -> void:
 			% [SLIDE_STATE, CROUCH_STATE]
 			+ "leaving the slide into a crouch won't blend cleanly."
 		)
+
+
+## The tree only had Dive -> Land, so travel() had no route from the dive to
+## the slide it lands in (and none into the dive from a wall kick, a slide
+## jump or a predicted landing). Add the missing direct transitions here.
+func _setup_dive_transitions() -> void:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if not machine or not machine.has_node(DIVE_STATE):
+		return
+
+	for from_state in DIVE_ENTRY_STATES:
+		if machine.has_node(from_state):
+			_ensure_transition(machine, from_state, DIVE_STATE, into_dive_blend_time)
+
+	if machine.has_node(SLIDE_STATE):
+		_ensure_transition(machine, DIVE_STATE, SLIDE_STATE, dive_to_slide_blend_time)
+
+
+func _ensure_transition(
+	machine: AnimationNodeStateMachine,
+	from_state: StringName,
+	to_state: StringName,
+	xfade: float
+) -> void:
+	var transition: AnimationNodeStateMachineTransition = null
+
+	for i in machine.get_transition_count():
+		if machine.get_transition_from(i) == from_state and machine.get_transition_to(i) == to_state:
+			transition = machine.get_transition(i)
+			break
+
+	if transition:
+		if xfade >= 0.0:
+			transition.xfade_time = xfade
+	else:
+		transition = AnimationNodeStateMachineTransition.new()
+		transition.xfade_time = maxf(xfade, 0.0)
+		machine.add_transition(from_state, to_state, transition)
+
+	# Switch straight away (not at the end of the current clip) and make
+	# sure travel() is allowed to use it.
+	transition.switch_mode = AnimationNodeStateMachineTransition.SWITCH_MODE_IMMEDIATE
+	transition.advance_mode = AnimationNodeStateMachineTransition.ADVANCE_MODE_ENABLED
 
 
 ## Keeps both ground blend spaces positioned at the current speed. Called
@@ -455,12 +550,30 @@ func update(delta: float) -> void:
 
 		return
 
+	if player.is_diving:
+
+		if current_anim_state != AnimState.DIVE:
+
+			current_anim_state = AnimState.DIVE
+
+			_travel_if_present(DIVE_STATE)
+
+		was_on_floor = on_floor
+		was_sliding = false
+		land_anim_active = false
+		landing_timer = 0.0
+
+		_update_locomotion_speed(delta)
+
+		return
+
 	if (
 		not on_floor
 		and not land_anim_active
 		and not player.is_wall_sliding
 		and not player.is_wall_running
 		and not player.is_sliding
+		and not player.is_diving
 	):
 		if _predict_landing_within(land_anim_duration):
 
@@ -468,15 +581,15 @@ func update(delta: float) -> void:
 			current_anim_state = AnimState.LAND
 			landing_timer = land_anim_duration
 
-			anim_playback.travel("Land")
+			_travel_if_present("Land")
 
-	if !was_on_floor and on_floor and not land_anim_active and not player.is_sliding:
+	if !was_on_floor and on_floor and not land_anim_active and not player.is_sliding and not player.is_diving:
 
 		land_anim_active = true
 		current_anim_state = AnimState.LAND
 		landing_timer = land_anim_duration
 
-		anim_playback.travel("Land")
+		_travel_if_present("Land")
 
 	was_on_floor = on_floor
 
@@ -501,7 +614,7 @@ func update(delta: float) -> void:
 
 			current_anim_state = AnimState.SLIDE
 
-			anim_playback.travel(SLIDE_STATE)
+			_travel_if_present(SLIDE_STATE)
 
 		_update_locomotion_speed(delta)
 		_push_blend_positions()
@@ -524,7 +637,7 @@ func update(delta: float) -> void:
 
 					current_anim_state = AnimState.JUMP_OUT_OF_SLIDE
 
-					anim_playback.travel(
+					_travel_if_present(
 						"JumpOutOfSlide"
 					)
 
@@ -540,7 +653,7 @@ func update(delta: float) -> void:
 
 				current_anim_state = AnimState.WALL_SLIDE
 
-				anim_playback.travel("WallSlide")
+				_travel_if_present("WallSlide")
 
 			_update_locomotion_speed(delta)
 
@@ -581,7 +694,7 @@ func update(delta: float) -> void:
 
 				current_anim_state = AnimState.JUMP
 
-				anim_playback.travel("Jump")
+				_travel_if_present("Jump")
 
 		else:
 
@@ -589,7 +702,7 @@ func update(delta: float) -> void:
 
 				current_anim_state = AnimState.FALL
 
-				anim_playback.travel("Fall")
+				_travel_if_present("Fall")
 
 		_update_locomotion_speed(delta)
 
@@ -642,7 +755,7 @@ func update(delta: float) -> void:
 
 	if not was_grounded_locomotion:
 
-		anim_playback.travel(
+		_travel_if_present(
 			LOCOMOTION_STATE
 		)
 
@@ -680,7 +793,7 @@ func play_double_jump() -> void:
 
 	was_sliding = false
 
-	anim_playback.travel(
+	_travel_if_present(
 		"DoubleJump"
 	)
 
@@ -694,7 +807,7 @@ func play_triple_jump() -> void:
 
 	was_sliding = false
 
-	anim_playback.travel(
+	_travel_if_present(
 		"TripleJump"
 	)
 
@@ -727,7 +840,7 @@ func force_idle() -> void:
 
 	if animation_tree and anim_playback:
 
-		anim_playback.travel(
+		_travel_if_present(
 			"BlendSpace1D"
 		)
 
