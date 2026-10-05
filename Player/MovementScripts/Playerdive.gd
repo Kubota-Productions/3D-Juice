@@ -10,6 +10,7 @@ extends PlayerMovementModule
 @export var max_fall_speed: float = 22.0
 @export var acceleration: float = 60.0
 @export var slide_duration: float = 1.1
+@export var cooldown: float = 3.0
 ## After a dive, jumping into a wall runs you straight up it once, this high
 ## and for this long (it slows to a stop at the top, then you fall).
 @export var wall_climb_height: float = 1.2
@@ -26,6 +27,7 @@ var is_active := false
 var direction: Vector3 = Vector3.ZERO
 var current_speed: float = 0.0
 var used := false
+var cooldown_timer: float = 0.0
 var wall_climb_available := false
 var climb_used := false
 var climb_elapsed: float = 0.0
@@ -35,6 +37,20 @@ var climb_along: Vector3 = Vector3.ZERO
 
 func cancel() -> void:
 	is_active = false
+
+
+func tick(delta: float) -> void:
+	cooldown_timer = maxf(cooldown_timer - delta, 0.0)
+
+
+func get_ready_fraction() -> float:
+	if used:
+		return 0.0
+
+	if cooldown <= 0.0:
+		return 1.0
+
+	return 1.0 - clampf(cooldown_timer / cooldown, 0.0, 1.0)
 
 
 func on_grounded() -> void:
@@ -55,6 +71,7 @@ func can_start() -> bool:
 		not player.is_on_floor()
 		and not is_active
 		and not used
+		and cooldown_timer <= 0.0
 		and player.jumps_used <= 1
 		and not player.slide.is_active
 		and not player.movement_locked
@@ -78,6 +95,7 @@ func start() -> void:
 	direction = heading.normalized()
 	current_speed = clampf(player.get_planar_speed() + forward_boost, min_speed, max_speed)
 	is_active = true
+	cooldown_timer = cooldown
 
 	player.jump_phase = Player.JumpPhase.NONE
 	player.jump_phase_timer = 0.0

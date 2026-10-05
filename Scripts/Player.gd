@@ -374,6 +374,7 @@ func _physics_process(delta: float) -> void:
 	spring_arm.update_look(delta)
 
 	ledge.tick(delta)
+	dive.tick(delta)
 
 	_read_input(delta)
 	_update_ground_state(delta)

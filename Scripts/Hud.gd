@@ -37,12 +37,14 @@ var speed_lines_intensity: float = 0.0
 # WALL MOVE INDICATORS
 # ============================================================
 @export_group("Wall Move Indicators")
-## Any Control (TextureRect, Label, Panel, ...). Visible while a wall run
-## is available; hidden while one is in progress or all runs are used up.
-@export var wall_run_indicator: Control
-## Visible while a wall slide is available; hidden while one is in
-## progress or all slides are used up.
-@export var wall_slide_indicator: Control
+@export var wall_power_indicator1: Control
+@export var wall_power_indicator2: Control
+
+@export_group("Dive Indicator")
+@export var Dive_indicator1: Control
+@export var dive_indicator_min_scale: float = 0.2
+@export var dive_indicator_shrink_speed: float = 8.0
+var _dive_indicator_scale: float = 1.0
 
 # ============================================================
 # TOOLTIP
@@ -61,6 +63,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	update_graphics(delta)
 	update_wall_indicators()
+	update_dive_indicator(delta)
 	if Cam_controller == null or player_cam == null:
 		return
 
@@ -151,40 +154,39 @@ func update_graphics(delta: float) -> void:
 		if mat:
 			mat.set_shader_parameter("intensity", speed_lines_intensity)
 
+func update_dive_indicator(delta: float) -> void:
+	if not player or not Dive_indicator1:
+		return
 
-# ============================================================
+	Dive_indicator1.pivot_offset = Dive_indicator1.size / 2.0
+
+	var target: float = lerpf(dive_indicator_min_scale, 1.0, player.dive.get_ready_fraction())
+
+	if target < _dive_indicator_scale:
+		_dive_indicator_scale = move_toward(_dive_indicator_scale, target, dive_indicator_shrink_speed * delta)
+	else:
+		_dive_indicator_scale = target
+
+	Dive_indicator1.scale = Vector2.ONE * _dive_indicator_scale
+
 # WALL MOVE INDICATORS
-# ============================================================
 func update_wall_indicators() -> void:
 	if not player:
 		return
 
-	if wall_run_indicator:
-		wall_run_indicator.visible = _is_wall_run_available()
-
-	if wall_slide_indicator:
-		wall_slide_indicator.visible = _is_wall_slide_available()
+	var remaining: int = _wall_moves_remaining()
+	if wall_power_indicator1:
+		wall_power_indicator1.visible = remaining >= 1
+	if wall_power_indicator2:
+		wall_power_indicator2.visible = remaining >= 2
 
 
 ## A wall run counts as available when the player isn't mid-run, still has
 ## runs left (Player resets the count on landing), and wall movement isn't
 ## disabled by being locked or in OTS mode.
-func _is_wall_run_available() -> bool:
+func _wall_moves_remaining() -> int:
 	if player.movement_locked or player.is_ots_mode:
-		return false
-
-	if player.is_wall_running:
-		return false
-
-	return player._wall_moves_used < player.max_wall_moves
-
-
-## Same rules as the wall run, using the slide's own counter and limit.
-func _is_wall_slide_available() -> bool:
-	if player.movement_locked or player.is_ots_mode:
-		return false
-
-	if player.is_wall_sliding:
-		return false
-
-	return player._wall_moves_used < player.max_wall_moves
+		return 0
+	return maxi(player.max_wall_moves - player._wall_moves_used, 0)
+	
+	
