@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://diygmmhdmqfw0"
-path="res://.godot/imported/Mskin_Roughness.png-1f32b16d3bd3c78ecb6038ad2af9360b.ctex"
+uid="uid://0ish1p0g1ulj"
+path="res://.godot/imported/hair.png-0443d5d4cd874d5409a8f2bb895bd448.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Player/512assets/Mskin_Roughness.png"
-dest_files=["res://.godot/imported/Mskin_Roughness.png-1f32b16d3bd3c78ecb6038ad2af9360b.ctex"]
+source_file="res://Textures/hair.png"
+dest_files=["res://.godot/imported/hair.png-0443d5d4cd874d5409a8f2bb895bd448.ctex"]
 
 [params]
 

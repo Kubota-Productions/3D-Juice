@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d3hhvvgyl130f"
-path="res://.godot/imported/Mclothing_Roughness.png-1a162d38a3dae1b703799a4640bfab01.ctex"
+uid="uid://mhmf3njb2frp"
+path="res://.godot/imported/3DJuicePC_hair.png-fdf8a28a91a80b8e04eeb2602c80d82e.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "c26cc622a3727b7814d3a3b591c7b0d4"
 }
 
 [deps]
 
-source_file="res://Player/512assets/Mclothing_Roughness.png"
-dest_files=["res://.godot/imported/Mclothing_Roughness.png-1a162d38a3dae1b703799a4640bfab01.ctex"]
+source_file="res://Player/3DJuicePC_hair.png"
+dest_files=["res://.godot/imported/3DJuicePC_hair.png-fdf8a28a91a80b8e04eeb2602c80d82e.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PlayerWallMovement" format=3 uid="uid://dvr5k0x86hgbx"]
+
+[ext_resource type="Script" uid="uid://c0acq3bw762q8" path="res://Player/MovementScripts/Playerwallmovement.gd" id="1_cm0wd"]
+
+[resource]
+script = ExtResource("1_cm0wd")
+run_max_time = 2.0
+run_arc_height = 0.5
+run_apex_fraction = 0.2
+jump_away_speed = 8.0
+max_moves = 2

@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bbmo1rjcybadu"
-path="res://.godot/imported/Mskin_Mixed_AO.png-764988110fe1426258d54b17f46c9032.ctex"
+uid="uid://eodjegranx2v"
+path="res://.godot/imported/3DJuicePC_default_ao_tga_559f1ac6_orm_171884568.png-fe842da818c4b6656cc1feef4d1ac5fe.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "9f51432b4c47d144039b8259564bb89b"
 }
 
 [deps]
 
-source_file="res://Player/512assets/Mskin_Mixed_AO.png"
-dest_files=["res://.godot/imported/Mskin_Mixed_AO.png-764988110fe1426258d54b17f46c9032.ctex"]
+source_file="res://Player/3DJuicePC_default_ao_tga_559f1ac6_orm_171884568.png"
+dest_files=["res://.godot/imported/3DJuicePC_default_ao_tga_559f1ac6_orm_171884568.png-fe842da818c4b6656cc1feef4d1ac5fe.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

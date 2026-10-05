@@ -80,7 +80,8 @@ enum AnimState {
 	LEDGE_CLIMB,
 	CROUCH,
 	WALL_RUN,
-	DIVE
+	DIVE,
+	WALL_CLIMB
 }
 
 const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
@@ -93,6 +94,10 @@ const CROUCH_STATE := "CrouchBlend"
 const WALL_RUN_LEFT_STATE := "WallRunLeft"
 const WALL_RUN_RIGHT_STATE := "WallRunRight"
 const DIVE_STATE := "Dive"
+## The dive's straight-up wall climb. Falls back to WallSlide (which also
+## faces the wall) until a WallClimb state is added to the AnimationTree.
+const WALL_CLIMB_STATE := "WallClimb"
+const WALL_CLIMB_FALLBACK_STATE := "WallSlide"
 const WALL_RUN_TIME_SCALE_NODE := "TimeScale"
 
 ## Every state the player can be in when a dive starts.
@@ -366,6 +371,14 @@ func _setup_state_time_scale(machine: AnimationNodeStateMachine, state_name: Str
 	_wall_run_time_scale_params[state_name] = param
 
 
+func _get_wall_climb_state_name() -> String:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if machine and not machine.has_node(WALL_CLIMB_STATE):
+		return WALL_CLIMB_FALLBACK_STATE
+
+	return WALL_CLIMB_STATE
+
+
 func _get_wall_run_state_name() -> String:
 	return WALL_RUN_RIGHT_STATE if player.wall_side > 0 else WALL_RUN_LEFT_STATE
 
@@ -572,6 +585,7 @@ func update(delta: float) -> void:
 		and not land_anim_active
 		and not player.is_wall_sliding
 		and not player.is_wall_running
+		and not player.is_wall_climbing
 		and not player.is_sliding
 		and not player.is_diving
 	):
@@ -646,6 +660,18 @@ func update(delta: float) -> void:
 				_update_locomotion_speed(delta)
 
 				return
+
+		if player.is_wall_climbing:
+
+			if current_anim_state != AnimState.WALL_CLIMB:
+
+				current_anim_state = AnimState.WALL_CLIMB
+
+				_travel_if_present(_get_wall_climb_state_name())
+
+			_update_locomotion_speed(delta)
+
+			return
 
 		if player.is_wall_sliding:
 

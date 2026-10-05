@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cb0a7fvxkrv6v"
-path="res://.godot/imported/Mclothing_Metallic.png-170bc4ad5813e788fe945ecde44c7de0.ctex"
+uid="uid://086xu18hdj3n"
+path="res://.godot/imported/3DJuicePC_chessmaster_clothes_ao_png_5292a214_orm_1590340200.png-4c31fdf2adf4050d47a9201493d89c21.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "06fc9e01213d7986579db2a4d0c8d32b"
 }
 
 [deps]
 
-source_file="res://Player/512assets/Mclothing_Metallic.png"
-dest_files=["res://.godot/imported/Mclothing_Metallic.png-170bc4ad5813e788fe945ecde44c7de0.ctex"]
+source_file="res://Player/3DJuicePC_chessmaster_clothes_ao_png_5292a214_orm_1590340200.png"
+dest_files=["res://.godot/imported/3DJuicePC_chessmaster_clothes_ao_png_5292a214_orm_1590340200.png-4c31fdf2adf4050d47a9201493d89c21.ctex"]
 
 [params]
 
@@ -23,7 +26,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

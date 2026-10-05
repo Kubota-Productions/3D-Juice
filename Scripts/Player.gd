@@ -28,10 +28,6 @@ const MAX_UNEARNED_RISE_TOLERANCE := 0.25
 var pending_acceleration: Vector3 = Vector3.ZERO
 var _current_delta: float = 0.016
 var movement_locked: bool = false
-@export var wall_run_wall_gap: float = 0.03
-@export var wall_run_attach_gain: float = 12.0
-@export var wall_run_attach_max_speed: float = 8.0
-var _wall_gap: float = 0.0
 
 
 static func acceleration_toward(
@@ -56,6 +52,10 @@ func add_impulse(impulse: Vector3) -> void:
 	pending_acceleration += impulse / max(_current_delta, 0.0001)
 
 
+func get_predicted_velocity() -> Vector3:
+	return velocity + pending_acceleration * _current_delta
+
+
 func _integrate_velocity(delta: float) -> void:
 	velocity += pending_acceleration * delta
 	pending_acceleration = Vector3.ZERO
@@ -67,13 +67,13 @@ func hard_stop() -> void:
 	jump_phase = JumpPhase.NONE
 	jump_phase_timer = 0.0
 	_set_jump_profile()
-	_cancel_slide()
-	is_diving = false
+	slide.cancel()
+	dive.cancel()
 	_end_crouch(false)
-	_end_wall_movement(false)
-	_wall_lockout_timer = 0.0
-	_wall_kick_face_timer = 0.0
-	_set_ledge_state(LedgeState.NONE)
+	wall.end_wall_movement(false)
+	wall.lockout_timer = 0.0
+	wall.kick_facing = false
+	ledge.cancel()
 
 
 @export var rotation_pivot: Node3D
@@ -104,6 +104,105 @@ func set_body_center(world_center: Vector3) -> void:
 	global_position = world_center - global_basis * body_center_offset
 
 
+@export_group("Movement Modules")
+@export var movement_modules: Array[PlayerMovementModule] = []
+
+var slide: PlayerSlide
+var dive: PlayerDive
+var wall: PlayerWallMovement
+var ledge: PlayerLedgeGrab
+
+
+var is_sliding: bool:
+	get:
+		return slide != null and slide.is_active
+
+var is_diving: bool:
+	get:
+		return dive != null and dive.is_active
+
+var is_wall_running: bool:
+	get:
+		return wall != null and wall.is_wall_running
+
+var is_wall_sliding: bool:
+	get:
+		return wall != null and wall.is_wall_sliding
+
+var is_wall_climbing: bool:
+	get:
+		return wall != null and wall.is_wall_climbing
+
+var wall_side: int:
+	get:
+		return wall.side if wall != null else 0
+
+var wall_run_speed: float:
+	get:
+		return wall.run_speed if wall != null else 0.0
+
+var max_wall_moves: int:
+	get:
+		return wall.max_moves if wall != null else 0
+
+var _wall_moves_used: int:
+	get:
+		return wall.moves_used if wall != null else 0
+
+var is_ledge_hanging: bool:
+	get:
+		return ledge != null and ledge.is_hanging
+
+var is_ledge_climbing: bool:
+	get:
+		return ledge != null and ledge.is_climbing
+
+
+func _setup_modules() -> void:
+	var live_modules: Array[PlayerMovementModule] = []
+
+	for module in movement_modules:
+		if module == null:
+			continue
+
+		var instance := module.duplicate() as PlayerMovementModule
+
+		if instance is PlayerSlide and slide == null:
+			slide = instance as PlayerSlide
+		elif instance is PlayerDive and dive == null:
+			dive = instance as PlayerDive
+		elif instance is PlayerWallMovement and wall == null:
+			wall = instance as PlayerWallMovement
+		elif instance is PlayerLedgeGrab and ledge == null:
+			ledge = instance as PlayerLedgeGrab
+		else:
+			push_warning("Player: ignoring '%s' in movement_modules (unknown type, or a second one of the same type)." % module.resource_path)
+			continue
+
+		live_modules.append(instance)
+
+	if slide == null:
+		push_warning("Player: no PlayerSlide in movement_modules -- using defaults.")
+		slide = PlayerSlide.new()
+		live_modules.append(slide)
+
+	if dive == null:
+		push_warning("Player: no PlayerDive in movement_modules -- using defaults.")
+		dive = PlayerDive.new()
+		live_modules.append(dive)
+
+	if wall == null:
+		push_warning("Player: no PlayerWallMovement in movement_modules -- using defaults.")
+		wall = PlayerWallMovement.new()
+		live_modules.append(wall)
+
+	if ledge == null:
+		push_warning("Player: no PlayerLedgeGrab in movement_modules -- using defaults.")
+		ledge = PlayerLedgeGrab.new()
+		live_modules.append(ledge)
+
+	for module in live_modules:
+		module.setup(self)
 @export_group("Movement")
 @export var walk_speed: float = 2.5
 @export var run_speed: float = 5.0
@@ -116,49 +215,6 @@ func set_body_center(world_center: Vector3) -> void:
 
 var landing_brake_timer: float = 0.0
 @export var run_ramp_time: float = 0.35
-
-
-@export_group("Slide")
-@export var slide_speed: float = 7.5
-@export var slide_end_speed: float = 3.0
-@export var slide_duration: float = 0.7
-@export var slide_acceleration: float = 40.0
-@export var slide_jump_speed: float = 10.0
-@export var slide_jump_height: float = 1.2
-@export var slide_jump_rise_time: float = 0.45
-@export var slide_jump_fall_time: float = 0.44
-@export var slide_jump_air_control: float = 0.1
-@export var slide_max_speed: float = 14.0
-@export var slide_slope_acceleration: float = 14.0
-@export var slide_slope_min_angle_deg: float = 8.0
-@export var slide_slope_full_angle_deg: float = 35.0
-## While sliding, surfaces up to this steep still count as floor (the
-## CharacterBody3D default of 45 degrees is what used to drop the player off
-## steeper slopes). Never lowers the body's own floor_max_angle.
-@export_range(0.0, 89.0) var slide_floor_max_angle_deg: float = 75.0
-## While sliding, how far the body will snap back down to the surface after
-## a frame of moving off it. At speed on a downhill the ground drops away
-## faster than the default snap (0.1) can follow, so the player went
-## airborne. Never lowers the body's own floor_snap_length.
-@export var slide_floor_snap_length: float = 0.5
-## How long the slide survives while airborne (bumps, crests, small drops)
-## before it ends. Slide jumps stay available during this window.
-@export var slide_air_grace: float = 0.3
-## Walking up a slope that's too steep to stand on (steeper than the body's
-## normal floor limit, up to slide_floor_max_angle_deg) puts you in a slide
-## back down it.
-@export var slide_from_steep_slopes: bool = true
-
-
-@export_group("Dive")
-@export var dive_forward_boost: float = 7.0
-@export var dive_min_speed: float = 11.0
-@export var dive_max_speed: float = 14.0
-@export var dive_launch_up_speed: float = 4.0
-@export var dive_gravity: float = 30.0
-@export var dive_max_fall_speed: float = 22.0
-@export var dive_acceleration: float = 60.0
-@export var dive_slide_duration: float = 1.1
 
 
 @export_group("Crouch")
@@ -174,74 +230,12 @@ var landing_brake_timer: float = 0.0
 @export var crouch_jump_fall_time: float = 0.5
 @export var crouch_jump_air_control: float = 0.45
 
-
-@export_group("Wall Movement")
-@export var wall_check_distance: float = 0.8
-@export var wall_run_speed: float = 6.0
-@export var wall_run_min_speed: float = 4.0
-@export var wall_run_max_time: float = 1.6
-@export var wall_run_arc_height: float = 0.6
-@export_range(0.1, 0.9) var wall_run_apex_fraction: float = 0.4
-@export var wall_slide_speed: float = 2.0
-@export var wall_slide_turn_speed: float = 16.0
-@export var wall_kick_turn_speed: float = 20.0
-@export var wall_kick_face_time: float = 0.4
-@export var wall_jump_away_speed: float = 6.5
-@export var wall_jump_air_control: float = 0.2
-@export var wall_regrab_delay: float = 0.25
-@export_range(0, 10, 1, "or_greater") var max_wall_moves: int = 1
-
-const SLIDE_JUMP_GRACE := 0.15
-const SLIDE_MIN_SPEED := 1.0
-## On surfaces steeper than the body's normal floor limit, the slide ends if
-## it is heading up them (dot with the downhill direction below this value).
-const SLIDE_STEEP_UPHILL_LIMIT := -0.2
-## How directly the player has to be pushing up a too-steep slope (dot of
-## the input with the uphill direction) before it counts as an attempt to climb it.
-const STEEP_SLOPE_PUSH_THRESHOLD := 0.3
-## Probing the real surface under a contact (see _get_slope_surface_normal):
-## how far each ray reaches either side of the surface, how far up the slope
-## the second sample is taken, and how closely the two face normals have to
-## agree (dot product) to count as one slope.
-const SLOPE_PROBE_DEPTH := 0.1
-const SLOPE_PROBE_SPACING := 0.15
-const SLOPE_PROBE_MATCH := 0.95
 ## Lifts the standing-height overlap test slightly off the floor so the
 ## ground the player is already touching doesn't count as an obstruction.
 const STAND_CHECK_LIFT := 0.04
 ## Releasing Crouch a moment before pressing jump still counts as a crouch jump.
 const CROUCH_JUMP_GRACE := 0.1
 const CROUCH_ACTION := &"Crouch"
-const WALL_RUN_MAX_APPROACH := 0.64
-const WALL_SLIDE_MIN_APPROACH := 0.3
-const WALL_STICK_SPEED := 1.0
-const WALL_RUN_ACCELERATION := 40.0
-const WALL_VERTICAL_ACCELERATION := 30.0
-
-
-@export_group("Ledge Grab")
-@export var ledge_reach: float = 0.7
-@export var ledge_wall_check_height: float = 0.9
-@export var ledge_min_height: float = 1.0
-@export var ledge_max_height: float = 1.8
-@export var ledge_top_probe_depth: float = 0.15
-@export var ledge_max_rise_speed: float = 3.0
-@export var ledge_hang_drop: float = 1.5
-@export var ledge_wall_gap: float = 0.05
-@export var ledge_stand_inset: float = 0.15
-@export var ledge_snap_time: float = 0.08
-@export var ledge_min_hang_time: float = 0.15
-@export var ledge_climb_time: float = 0.6
-@export_range(0.05, 0.95) var ledge_climb_vertical_fraction: float = 0.65
-@export var ledge_regrab_delay: float = 0.4
-@export var ledge_drop_push: float = 1.5
-@export_range(0.0, 1.0) var ledge_support_footprint: float = 0.9
-@export var ledge_support_tolerance: float = 0.2
-@export var ledge_path_check_step: float = 0.3
-
-const LEDGE_MIN_TOP_NORMAL := 0.7
-const LEDGE_STAND_LIFT := 0.03
-const LEDGE_CLEARANCE_LIFT := 0.04
 
 
 @export_group("Run Dust")
@@ -325,8 +319,7 @@ var prev_model_forward: Vector3 = Vector3.FORWARD
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-	_default_floor_max_angle = floor_max_angle
-	_default_floor_snap_length = floor_snap_length
+	_setup_modules()
 
 	model_yaw_basis = character_model.global_basis
 	model_base_scale = character_model.scale
@@ -355,7 +348,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ToggleOTS"):
 		if is_ots_mode:
 			is_ots_mode = false
-		elif is_on_floor() and (not is_sliding or _can_stand_up()):
+		elif is_on_floor() and (not slide.is_active or can_stand_up()):
 			is_ots_mode = true
 
 	telekinesis_controller.handle_input(event)
@@ -380,20 +373,20 @@ func _physics_process(delta: float) -> void:
 
 	spring_arm.update_look(delta)
 
-	_ledge_lockout_timer = maxf(_ledge_lockout_timer - delta, 0.0)
+	ledge.tick(delta)
 
 	_read_input(delta)
 	_update_ground_state(delta)
 
-	if ledge_state == LedgeState.NONE:
-		_update_dive(delta)
-		_update_slide(delta)
+	if not ledge.is_active():
+		dive.update(delta)
+		slide.update(delta)
 		_update_crouch(delta)
-		_update_wall_movement(delta)
-		_try_grab_ledge()
+		wall.update(delta)
+		ledge.try_grab()
 
-	if ledge_state != LedgeState.NONE:
-		_update_ledge(delta)
+	if ledge.is_active():
+		ledge.update(delta)
 	else:
 		if is_ots_mode and not is_on_floor():
 			is_ots_mode = false
@@ -408,7 +401,7 @@ func _physics_process(delta: float) -> void:
 		var up_speed_before: float = velocity.dot(up_direction)
 		move_and_slide()
 		_limit_unearned_rise(up_speed_before)
-		_try_steep_slope_slide()
+		slide.try_steep_slope_slide()
 
 	aim_pivot.global_position = get_body_center()
 	spring_arm.update_pivot_position(delta)
@@ -458,7 +451,7 @@ func _read_input(delta: float) -> void:
 		jump_buffer_timer -= delta
 
 
-func _get_input_direction() -> Vector3:
+func get_input_direction() -> Vector3:
 	if move_input.length_squared() == 0.0:
 		return Vector3.ZERO
 
@@ -486,12 +479,12 @@ func _update_ground_state(delta: float) -> void:
 			_trigger_landing_squash(_last_air_fall_speed)
 		_last_air_fall_speed = 0.0
 
-		if not was_grounded_last_frame and not is_sliding and not is_diving and planar_velocity.length() > max_landing_speed:
+		if not was_grounded_last_frame and not slide.is_active and not dive.is_active and planar_velocity.length() > max_landing_speed:
 			landing_brake_timer = landing_brake_time
 
 		# A slide re-touching the ground at speed is not a hard landing; the
 		# brake would drag it down to max_landing_speed.
-		if is_sliding or is_diving:
+		if slide.is_active or dive.is_active:
 			landing_brake_timer = 0.0
 		elif landing_brake_timer > 0.0:
 			landing_brake_timer -= delta
@@ -505,7 +498,8 @@ func _update_ground_state(delta: float) -> void:
 		coyote_timer = coyote_time
 		jumps_used = 0
 		jump_phase = JumpPhase.NONE
-		_wall_kick_face_timer = 0.0
+		wall.kick_facing = false
+		dive.on_grounded()
 		_set_jump_profile()
 	else:
 		coyote_timer -= delta
@@ -534,12 +528,12 @@ func _set_jump_profile(kind: JumpKind = JumpKind.NORMAL) -> void:
 
 	match kind:
 		JumpKind.SLIDE:
-			height = slide_jump_height
-			rise_t = slide_jump_rise_time
-			fall_t = slide_jump_fall_time
-			air_control = slide_jump_air_control
+			height = slide.jump_height
+			rise_t = slide.jump_rise_time
+			fall_t = slide.jump_fall_time
+			air_control = slide.jump_air_control
 		JumpKind.WALL:
-			air_control = wall_jump_air_control
+			air_control = wall.jump_air_control
 		JumpKind.CROUCH:
 			height = crouch_jump_height
 			rise_t = crouch_jump_rise_time
@@ -563,27 +557,10 @@ func get_fall_gravity() -> float:
 
 func _apply_gravity(delta: float) -> void:
 
-	if wall_state == WallState.RUNNING:
-		add_acceleration(acceleration_toward(
-			(velocity + pending_acceleration * delta).project(up_direction),
-			up_direction * _get_wall_run_vertical_speed(),
-			WALL_VERTICAL_ACCELERATION,
-			delta
-		))
+	if wall.apply_gravity(delta):
 		return
 
-	if wall_state == WallState.SLIDING:
-		add_acceleration(acceleration_toward(
-			velocity.project(up_direction),
-			-up_direction * wall_slide_speed,
-			WALL_VERTICAL_ACCELERATION,
-			delta
-		))
-		return
-
-	if is_diving:
-		if velocity.dot(up_direction) > -dive_max_fall_speed:
-			add_acceleration(-up_direction * dive_gravity)
+	if dive.apply_gravity(delta):
 		return
 
 	if jump_phase == JumpPhase.RISING and is_on_ceiling():
@@ -640,30 +617,30 @@ func _handle_jump(_delta: float) -> void:
 	# either (the collider would grow inside the ceiling mid-air). The
 	# buffered press stays alive, so the jump still fires if they clear the
 	# cover in time.
-	if (is_sliding or is_crouching) and not _can_stand_up():
+	if (slide.is_active or is_crouching) and not can_stand_up():
 		return
 
-	if wall_state != WallState.NONE:
-		_start_wall_jump()
+	if wall.try_handle_jump():
 		return
 
 	if coyote_timer > 0.0:
-		if is_sliding or _slide_jump_grace_timer > 0.0:
-			_start_jump(JumpKind.SLIDE, _slide_direction * maxf(slide_jump_speed, _slide_speed))
-			_end_slide(false)
+		if slide.is_active or slide.jump_grace_timer > 0.0:
+			start_jump(JumpKind.SLIDE, slide.get_jump_launch())
+			dive.on_slide_jump()
+			slide.end(false)
 			_end_crouch(false)
 		elif is_crouching or _crouch_jump_grace_timer > 0.0:
-			_start_jump(JumpKind.CROUCH)
+			start_jump(JumpKind.CROUCH)
 			_end_crouch(false)
 		else:
-			_start_jump()
+			start_jump()
 
 		jump_buffer_timer = 0.0
 		coyote_timer = 0.0
 		jumps_used = 1
 
 	elif jumps_used < max_jumps:
-		_start_jump()
+		start_jump()
 		jump_buffer_timer = 0.0
 
 		if animation_controller:
@@ -676,13 +653,13 @@ func _handle_jump(_delta: float) -> void:
 		jumps_used += 1
 
 
-func _start_jump(kind: JumpKind = JumpKind.NORMAL, planar_launch: Vector3 = Vector3.ZERO) -> void:
-	is_diving = false
+func start_jump(kind: JumpKind = JumpKind.NORMAL, planar_launch: Vector3 = Vector3.ZERO) -> void:
+	dive.is_active = false
 
 	_set_jump_profile(kind)
 
 	if kind != JumpKind.WALL:
-		_wall_kick_face_timer = 0.0
+		wall.kick_facing = false
 
 	# Other systems can already have queued vertical acceleration this frame
 	# (e.g. the wall-run entry impulse, which fires in the same frame as a
@@ -690,7 +667,7 @@ func _start_jump(kind: JumpKind = JumpKind.NORMAL, planar_launch: Vector3 = Vect
 	# vertical speed got cancelled twice, so the jump launched with the old
 	# fall speed added on top -- a big free boost. Cancel the velocity as it
 	# will be once the queued acceleration is integrated instead.
-	var predicted_velocity: Vector3 = velocity + pending_acceleration * _current_delta
+	var predicted_velocity: Vector3 = get_predicted_velocity()
 	var impulse: Vector3 = -predicted_velocity.project(up_direction) + up_direction * _active_jump_velocity
 
 	if kind == JumpKind.SLIDE or kind == JumpKind.WALL:
@@ -701,95 +678,11 @@ func _start_jump(kind: JumpKind = JumpKind.NORMAL, planar_launch: Vector3 = Vect
 	jump_phase_timer = _active_rise_time
 
 
-var is_sliding := false
-var slide_timer: float = 0.0
-var _slide_direction: Vector3 = Vector3.ZERO
-var _slide_jump_grace_timer: float = 0.0
-var _slide_speed: float = 0.0
-var _slide_duration: float = 0.7
-var _slide_elapsed: float = 0.0
-var _slide_air_time: float = 0.0
-var _slide_last_downhill: float = 0.0
-
-## The body's own floor settings, cached in _ready so the slide can raise
-## them temporarily and put them back afterwards.
-var _default_floor_max_angle: float = 0.785398
-var _default_floor_snap_length: float = 0.1
-
-
-func _can_start_slide() -> bool:
-	return is_on_floor() and is_running and get_planar_speed() > walk_speed
-
-
-func _start_slide() -> void:
-	var heading: Vector3 = velocity.slide(up_direction)
-	if heading.length_squared() < 0.0001:
-		return
-
-	_begin_slide(heading.normalized())
-
-
-func _begin_slide(direction: Vector3) -> void:
-	_slide_direction = direction
-	is_sliding = true
-	slide_timer = 0.0
-	_slide_speed = slide_speed
-	_slide_duration = slide_duration
-	_slide_elapsed = 0.0
-	_slide_air_time = 0.0
-	_slide_last_downhill = 0.0
-	_slide_jump_grace_timer = 0.0
-	landing_brake_timer = 0.0
-	_refresh_collision()
-
-
-func _end_slide(allow_jump_grace: bool) -> void:
-	is_sliding = false
-	slide_timer = 0.0
-	_slide_jump_grace_timer = SLIDE_JUMP_GRACE if allow_jump_grace else 0.0
-	_refresh_collision()
-
-
-func _cancel_slide() -> void:
-	is_sliding = false
-	slide_timer = 0.0
-	_slide_jump_grace_timer = 0.0
-	_refresh_collision()
-
-
 ## The short collider is used whenever the player is sliding OR crouching.
 ## Also swaps the body's floor settings, which only the slide changes.
-func _refresh_collision() -> void:
-	_set_short_collision(is_sliding or is_crouching)
-	_apply_slide_floor_settings()
-
-
-func _apply_slide_floor_settings() -> void:
-	if is_sliding:
-		floor_max_angle = maxf(_default_floor_max_angle, deg_to_rad(slide_floor_max_angle_deg))
-		floor_snap_length = maxf(_default_floor_snap_length, slide_floor_snap_length)
-	else:
-		floor_max_angle = _default_floor_max_angle
-		floor_snap_length = _default_floor_snap_length
-
-
-## True when the slide is heading up a surface that only counts as floor
-## because of the slide's raised floor angle (i.e. steeper than the body's
-## normal limit). Without this the slide would run up steep walls.
-func _slide_climbing_steep_slope() -> bool:
-	if not is_on_floor():
-		return false
-
-	var floor_normal: Vector3 = get_floor_normal()
-	var angle: float = acos(clampf(floor_normal.dot(up_direction), -1.0, 1.0))
-	if angle <= _default_floor_max_angle:
-		return false
-
-	var downhill: Vector3 = floor_normal.slide(up_direction)
-	if downhill.length_squared() < 0.0001:
-		return false
-
-	return _slide_direction.dot(downhill.normalized()) < SLIDE_STEEP_UPHILL_LIMIT
+func refresh_collision() -> void:
+	_set_short_collision(slide.is_active or is_crouching)
+	slide.apply_floor_settings()
 
 
 func _set_short_collision(short: bool) -> void:
@@ -817,7 +710,7 @@ func _build_stand_check_shape() -> void:
 ## True if the full-height collider would fit at the player's current
 ## position. Used so the slide never ends (and the collider never grows)
 ## while there's geometry overhead for it to grow into.
-func _can_stand_up() -> bool:
+func can_stand_up() -> bool:
 	if not _stand_check_shape:
 		return true
 
@@ -837,357 +730,29 @@ func _can_stand_up() -> bool:
 	return space.intersect_shape(query, 1).is_empty()
 
 
-## Blocked by something while crouched under cover: hand steering back to the
-## player so they can crawl back out instead of being stuck in the slide.
-func _steer_slide_in_crawlspace() -> void:
-	var input_direction: Vector3 = _get_input_direction()
-	if input_direction.length_squared() < 0.0001:
-		return
+func get_capsule_radius() -> float:
+	if player_collision_shape:
+		var capsule := player_collision_shape.shape as CapsuleShape3D
+		if capsule:
+			return capsule.radius
 
-	_slide_direction = input_direction
-	_slide_elapsed = 0.0
+	return 0.3
 
 
 ## Slide and Crouch are treated as one pair of buttons: either one starts a
 ## slide when you're at slide speed, and either one holds the crouch.
-func _crouch_slide_pressed() -> bool:
+func crouch_slide_pressed() -> bool:
 	if Input.is_action_just_pressed("Slide"):
 		return true
 
 	return InputMap.has_action(CROUCH_ACTION) and Input.is_action_just_pressed(CROUCH_ACTION)
 
 
-func _crouch_slide_held() -> bool:
+func crouch_slide_held() -> bool:
 	if Input.is_action_pressed("Slide"):
 		return true
 
 	return InputMap.has_action(CROUCH_ACTION) and Input.is_action_pressed(CROUCH_ACTION)
-
-
-## The slide ran its course. If the slide/crouch button is still held, drop
-## straight into a crouch instead of standing up. (Jumping out of the slide,
-## losing the ground, or entering OTS mode use _end_slide() directly and never
-## crouch.) The crouch starts before the slide ends so the short collider
-## never grows for a frame in between.
-func _finish_slide(allow_jump_grace: bool) -> void:
-	var stay_low: bool = (
-		is_on_floor()
-		and InputMap.has_action(CROUCH_ACTION)
-		and _crouch_slide_held()
-	)
-
-	if stay_low:
-		is_running = false
-		run_timer = 0.0
-		_start_crouch()
-
-	_end_slide(allow_jump_grace)
-
-
-## The normal of the surface itself at a contact, or Vector3.ZERO if the
-## contact isn't on a flat-enough face. When the capsule's rounded bottom
-## presses on a corner (the edge of a flat ledge or step), the contact normal
-## points from the corner toward the capsule and comes out angled even
-## though neither face is. Ray-casting the face at the contact, and a little
-## further up it, only agrees on a normal when there really is a slope there.
-func _get_slope_surface_normal(collision: KinematicCollision3D) -> Vector3:
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	if not space:
-		return Vector3.ZERO
-
-	var contact: Vector3 = collision.get_position()
-	var contact_normal: Vector3 = collision.get_normal()
-
-	var up_slope: Vector3 = up_direction.slide(contact_normal)
-	if up_slope.length_squared() < 0.0001:
-		return Vector3.ZERO
-	up_slope = up_slope.normalized()
-
-	var samples: Array[Vector3] = [contact, contact + up_slope * SLOPE_PROBE_SPACING]
-	var face_normal: Vector3 = Vector3.ZERO
-
-	for point in samples:
-		var query := PhysicsRayQueryParameters3D.create(
-			point + contact_normal * SLOPE_PROBE_DEPTH,
-			point - contact_normal * SLOPE_PROBE_DEPTH,
-			collision_mask,
-			[get_rid()]
-		)
-		var hit: Dictionary = space.intersect_ray(query)
-		if hit.is_empty():
-			return Vector3.ZERO
-
-		var hit_normal: Vector3 = hit["normal"]
-		if face_normal == Vector3.ZERO:
-			face_normal = hit_normal
-		elif hit_normal.dot(face_normal) < SLOPE_PROBE_MATCH:
-			return Vector3.ZERO
-
-	return face_normal
-
-
-## Attempting to walk up a slope too steep to stand on (steeper than the
-## body's normal floor limit, but within what the slide can grip) puts the
-## player into a slide back down it.
-func _try_steep_slope_slide() -> void:
-	if not slide_from_steep_slopes:
-		return
-
-	if is_sliding or is_diving or movement_locked or is_ots_mode or wall_state != WallState.NONE:
-		return
-
-	if jump_phase == JumpPhase.RISING:
-		return
-
-	var input_direction: Vector3 = _get_input_direction()
-	if input_direction.length_squared() < 0.0001:
-		return
-
-	var steepest_walkable: float = _default_floor_max_angle
-	var steepest_gripped: float = deg_to_rad(slide_floor_max_angle_deg)
-
-	for i in get_slide_collision_count():
-		var collision: KinematicCollision3D = get_slide_collision(i)
-		var contact_normal: Vector3 = collision.get_normal()
-		var contact_angle: float = acos(clampf(contact_normal.dot(up_direction), -1.0, 1.0))
-
-		if contact_angle <= steepest_walkable or contact_angle > steepest_gripped:
-			continue
-
-		# Make sure it's an actual slope and not the edge of a flat ledge
-		# or step (see _get_slope_surface_normal).
-		var normal: Vector3 = _get_slope_surface_normal(collision)
-		if normal == Vector3.ZERO:
-			continue
-
-		var angle: float = acos(clampf(normal.dot(up_direction), -1.0, 1.0))
-		if angle <= steepest_walkable or angle > steepest_gripped:
-			continue
-
-		# The contact has to be down at the feet (walking into or standing on
-		# the slope), not the upper body brushing it mid-jump.
-		var contact_height: float = (collision.get_position() - global_position).dot(up_direction)
-		if contact_height > NORMAL_COLLISION_HEIGHT * 0.5:
-			continue
-
-		var downhill: Vector3 = normal.slide(up_direction)
-		if downhill.length_squared() < 0.0001:
-			continue
-		downhill = downhill.normalized()
-
-		# Only when pushing up the slope, not along or away from it.
-		if input_direction.dot(downhill) > -STEEP_SLOPE_PUSH_THRESHOLD:
-			continue
-
-		_begin_slide(downhill)
-		return
-
-
-func _update_slide(delta: float) -> void:
-
-	_slide_jump_grace_timer = maxf(_slide_jump_grace_timer - delta, 0.0)
-
-	if is_sliding:
-		_slide_elapsed += delta
-
-		if is_on_floor():
-			_slide_air_time = 0.0
-		else:
-			_slide_air_time += delta
-
-		# The old check used the 0.15s coyote timer, which a fast downhill
-		# slide easily outlasts. The slide now gets its own, longer grace.
-		var lost_ground: bool = _slide_air_time > slide_air_grace
-		var blocked: bool = (
-			(_slide_elapsed > 0.1 and get_planar_speed() < SLIDE_MIN_SPEED)
-			or _slide_climbing_steep_slope()
-		)
-
-		# Airborne too long (or locked): there's no floor to clip through, so just end it.
-		if movement_locked or lost_ground:
-			_end_slide(false)
-			return
-
-		# Still inside the air grace: keep the slide jump available (the
-		# jump logic keys off the coyote timer), without extending it
-		# past the end of the grace.
-		if not is_on_floor():
-			coyote_timer = maxf(coyote_timer, delta)
-
-		# Anything else that would end the slide only does so if the player
-		# fits at full height. Otherwise they stay crouched and keep sliding
-		# until the cover ends, instead of the collider growing into it.
-		if is_ots_mode or blocked:
-			if _can_stand_up():
-				if blocked and not is_ots_mode:
-					_finish_slide(false)
-				else:
-					_end_slide(false)
-				return
-
-			if blocked:
-				_steer_slide_in_crawlspace()
-
-		var downhill: float = _get_slide_downhill_factor()
-
-		# Airborne for a frame or two on a slope: keep the last downhill
-		# boost instead of treating it as flat ground (which would bleed
-		# speed and run down the slide timer).
-		if is_on_floor():
-			_slide_last_downhill = downhill
-		else:
-			downhill = _slide_last_downhill
-
-		if downhill > 0.0:
-			_slide_speed = move_toward(
-				_slide_speed,
-				slide_max_speed,
-				slide_slope_acceleration * downhill * delta
-			)
-		else:
-			var remaining: float = maxf(_slide_duration - slide_timer, 0.001)
-			_slide_speed = lerpf(
-				_slide_speed,
-				slide_end_speed,
-				clampf(delta / remaining, 0.0, 1.0)
-			)
-			slide_timer += delta
-
-			# Out of time, but only stand up once there's room. Until then the
-			# slide carries on at slide_end_speed.
-			if slide_timer >= _slide_duration and _can_stand_up():
-				_finish_slide(true)
-		return
-
-	if _crouch_slide_pressed() and _can_start_slide():
-		_start_slide()
-
-
-func _get_slide_speed() -> float:
-	return _slide_speed
-
-
-func _get_slide_downhill_factor() -> float:
-	if not is_on_floor():
-		return 0.0
-
-	var floor_normal: Vector3 = get_floor_normal()
-	var angle: float = acos(clampf(floor_normal.dot(up_direction), -1.0, 1.0))
-
-	if angle < deg_to_rad(slide_slope_min_angle_deg):
-		return 0.0
-
-	var downhill: Vector3 = floor_normal.slide(up_direction)
-	if downhill.length_squared() < 0.0001:
-		return 0.0
-
-	var alignment: float = _slide_direction.dot(downhill.normalized())
-	if alignment <= 0.0:
-		return 0.0
-
-	var steepness: float = clampf(
-		angle / maxf(deg_to_rad(slide_slope_full_angle_deg), 0.001),
-		0.0,
-		1.0
-	)
-	return steepness * alignment
-
-
-var is_diving := false
-var _dive_direction: Vector3 = Vector3.ZERO
-var _dive_speed: float = 0.0
-
-
-func _can_start_dive() -> bool:
-	return (
-		not is_on_floor()
-		and not is_diving
-		and not is_sliding
-		and not movement_locked
-		and not is_ots_mode
-		and wall_state == WallState.NONE
-	)
-
-
-func _start_dive() -> void:
-	var heading: Vector3 = velocity.slide(up_direction)
-
-	if heading.length() < 1.0:
-		heading = _get_input_direction()
-
-	if heading.length_squared() < 0.0001:
-		heading = (-character_model.global_basis.z).slide(up_direction)
-
-	if heading.length_squared() < 0.0001:
-		return
-
-	_dive_direction = heading.normalized()
-	_dive_speed = clampf(get_planar_speed() + dive_forward_boost, dive_min_speed, dive_max_speed)
-	is_diving = true
-
-	jump_phase = JumpPhase.NONE
-	jump_phase_timer = 0.0
-
-	var predicted_velocity: Vector3 = velocity + pending_acceleration * _current_delta
-	var impulse: Vector3 = _dive_direction * _dive_speed - predicted_velocity.slide(up_direction)
-	impulse += up_direction * (dive_launch_up_speed - predicted_velocity.dot(up_direction))
-
-	add_impulse(impulse)
-
-	_wall_moves_used = max_wall_moves
-
-func _land_dive() -> void:
-	var direction: Vector3 = _dive_direction
-	var landing_speed: float = maxf(slide_speed, minf(_dive_speed, get_planar_speed()))
-
-	is_diving = false
-
-	_begin_slide(direction)
-	_slide_speed = landing_speed
-	_slide_duration = dive_slide_duration
-
-
-func _update_dive(_delta: float) -> void:
-	if is_diving:
-		if movement_locked:
-			is_diving = false
-			return
-
-		if _dive_touched_ground():
-			_land_dive()
-		return
-
-	if _crouch_slide_pressed() and _can_start_dive():
-		_start_dive()
-
-
-## Hitting ground steeper than the body's normal floor limit doesn't count as
-## is_on_floor(), so the dive used to carry on down the slope until it found
-## flat ground. Any surface the slide can grip ends the dive (the slide it
-## lands in raises the floor angle, so it sticks to that slope).
-func _dive_touched_ground() -> bool:
-	if is_on_floor():
-		return true
-
-	var max_angle: float = maxf(_default_floor_max_angle, deg_to_rad(slide_floor_max_angle_deg))
-
-	for i in get_slide_collision_count():
-		var collision: KinematicCollision3D = get_slide_collision(i)
-		var normal: Vector3 = collision.get_normal()
-		if acos(clampf(normal.dot(up_direction), -1.0, 1.0)) > max_angle:
-			continue
-
-		# Steeper than normal floor: only a real slope counts, not the
-		# corner of a flat ledge.
-		var surface_normal: Vector3 = _get_slope_surface_normal(collision)
-		if surface_normal == Vector3.ZERO:
-			continue
-
-		var surface_angle: float = acos(clampf(surface_normal.dot(up_direction), -1.0, 1.0))
-		if surface_angle > _default_floor_max_angle and surface_angle <= max_angle:
-			return true
-
-	return false
 
 
 var is_crouching := false
@@ -1196,19 +761,19 @@ var _crouch_jump_grace_timer: float = 0.0
 
 ## Crouch unless you're at the speed where the same button would start a slide.
 func _can_start_crouch() -> bool:
-	return is_on_floor() and not is_sliding and not movement_locked and not _can_start_slide()
+	return is_on_floor() and not slide.is_active and not movement_locked and not slide.can_start()
 
 
-func _start_crouch() -> void:
+func start_crouch() -> void:
 	is_crouching = true
 	_crouch_jump_grace_timer = 0.0
-	_refresh_collision()
+	refresh_collision()
 
 
 func _end_crouch(allow_jump_grace: bool) -> void:
 	is_crouching = false
 	_crouch_jump_grace_timer = CROUCH_JUMP_GRACE if allow_jump_grace else 0.0
-	_refresh_collision()
+	refresh_collision()
 
 
 func _update_crouch(delta: float) -> void:
@@ -1221,11 +786,11 @@ func _update_crouch(delta: float) -> void:
 	var stop_requested: bool
 
 	if crouch_is_toggle:
-		var pressed: bool = _crouch_slide_pressed()
+		var pressed: bool = crouch_slide_pressed()
 		start_requested = pressed
 		stop_requested = pressed
 	else:
-		var held: bool = _crouch_slide_held()
+		var held: bool = crouch_slide_held()
 		start_requested = held
 		stop_requested = not held
 
@@ -1239,555 +804,12 @@ func _update_crouch(delta: float) -> void:
 
 		# Only stand up if the full-height collider fits; otherwise stay
 		# crouched until the cover ends.
-		if stop_requested and _can_stand_up():
+		if stop_requested and can_stand_up():
 			_end_crouch(true)
 		return
 
 	if start_requested and _can_start_crouch():
-		_start_crouch()
-
-
-enum WallState { NONE, RUNNING, SLIDING }
-
-var wall_state: WallState = WallState.NONE
-var is_wall_running := false
-var is_wall_sliding := false
-var wall_side: int = 0
-var _wall_normal: Vector3 = Vector3.ZERO
-var _wall_run_direction: Vector3 = Vector3.ZERO
-var _wall_run_speed: float = 0.0
-var _wall_run_time_left: float = 0.0
-var _wall_run_elapsed: float = 0.0
-var _wall_lockout_timer: float = 0.0
-var _wall_kick_face_timer: float = 0.0
-var _wall_kick_normal: Vector3 = Vector3.ZERO
-var _wall_moves_used: int = 0
-
-
-func _update_wall_movement(delta: float) -> void:
-
-	_wall_lockout_timer = maxf(_wall_lockout_timer - delta, 0.0)
-	_wall_kick_face_timer = maxf(_wall_kick_face_timer - delta, 0.0)
-
-	if is_on_floor() or movement_locked or is_ots_mode:
-		_end_wall_movement(false)
-		if is_on_floor():
-			_wall_run_time_left = wall_run_max_time
-			_wall_moves_used = 0
-		return
-
-	match wall_state:
-		WallState.RUNNING:
-			_update_wall_run(delta)
-		WallState.SLIDING:
-			_update_wall_slide()
-		WallState.NONE:
-			if _wall_lockout_timer <= 0.0 and not is_diving and not _try_start_wall_run():
-				_try_start_wall_slide()
-
-
-func _get_wall_run_vertical_speed() -> float:
-	var total: float = maxf(wall_run_max_time, 0.01)
-	var apex_time: float = maxf(total * wall_run_apex_fraction, 0.01)
-	var t: float = clampf(_wall_run_elapsed, 0.0, total)
-	var rise_speed: float = 2.0 * wall_run_arc_height / apex_time
-	var arc_gravity: float = 2.0 * wall_run_arc_height / (apex_time * apex_time)
-	return rise_speed - arc_gravity * t
-
-
-func _try_start_wall_run() -> bool:
-	if not is_running or _wall_moves_used >= max_wall_moves:
-		return false
-
-	var planar: Vector3 = velocity.slide(up_direction)
-	if planar.length() < wall_run_min_speed:
-		return false
-
-	var heading: Vector3 = planar.normalized()
-	var right: Vector3 = heading.cross(up_direction)
-	var center: Vector3 = get_body_center()
-
-	var best: Dictionary = {}
-	var best_distance: float = INF
-	var candidates: Array[Dictionary] = [_probe_wall(right), _probe_wall(-right)]
-
-	for hit in candidates:
-		if hit.is_empty():
-			continue
-
-		var normal: Vector3 = hit["normal"]
-		if absf(heading.dot(normal)) > WALL_RUN_MAX_APPROACH:
-			continue
-
-		var distance: float = center.distance_to(hit["position"])
-		if distance < best_distance:
-			best = hit
-			best_distance = distance
-
-	if best.is_empty():
-		return false
-
-	var wall_normal: Vector3 = best["normal"]
-	var along: Vector3 = heading.slide(wall_normal)
-	if along.length_squared() < 0.0001:
-		return false
-
-	_set_wall_state(WallState.RUNNING)
-	_wall_run_elapsed = 0.0
-
-	var entry_up_speed: float = velocity.dot(up_direction)
-	var arc_start_speed: float = _get_wall_run_vertical_speed()
-	if entry_up_speed < arc_start_speed:
-		add_impulse(up_direction * (arc_start_speed - entry_up_speed))
-	
-	_wall_moves_used += 1
-	_wall_run_time_left = wall_run_max_time
-	_wall_normal = wall_normal
-	_wall_gap = _measure_wall_gap(best)
-	_wall_run_direction = along.normalized()
-	_wall_run_speed = maxf(wall_run_speed, planar.length())
-	_update_wall_side()
-
-	jump_phase = JumpPhase.NONE
-	jump_phase_timer = 0.0
-	return true
-
-
-func _try_start_wall_slide() -> void:
-	if _wall_moves_used >= max_wall_moves:
-		return
-
-	if velocity.dot(up_direction) > 0.5:
-		return
-
-	var input_dir: Vector3 = _get_input_direction()
-	if input_dir.length_squared() == 0.0:
-		return
-
-	var hit: Dictionary = _probe_wall(input_dir)
-	if hit.is_empty():
-		return
-
-	var normal: Vector3 = hit["normal"]
-	if -input_dir.dot(normal) < WALL_SLIDE_MIN_APPROACH:
-		return
-
-	_set_wall_state(WallState.SLIDING)
-	_wall_moves_used += 1
-	_wall_normal = normal
-	jump_phase = JumpPhase.NONE
-	jump_phase_timer = 0.0
-
-
-func _update_wall_run(delta: float) -> void:
-	_wall_run_elapsed += delta
-	_wall_run_time_left -= delta
-
-	var hit: Dictionary = _probe_wall(-_wall_normal)
-
-	var keep_going: bool = (
-		is_running
-		and _wall_run_time_left > 0.0
-		and not hit.is_empty()
-		and get_planar_speed() >= wall_run_min_speed * 0.5
-	)
-	if not keep_going:
-		_end_wall_movement(true)
-		return
-
-	_wall_normal = hit["normal"]
-	_wall_gap = _measure_wall_gap(hit)
-
-	var along: Vector3 = _wall_run_direction.slide(_wall_normal)
-	if along.length_squared() < 0.0001:
-		_end_wall_movement(true)
-		return
-
-	_wall_run_direction = along.normalized()
-	_update_wall_side()
-
-
-func _update_wall_slide() -> void:
-	var hit: Dictionary = _probe_wall(-_wall_normal)
-	var pressing_in: bool = _get_input_direction().dot(-_wall_normal) > WALL_SLIDE_MIN_APPROACH
-
-	if hit.is_empty() or not pressing_in:
-		_end_wall_movement(false)
-		return
-
-	_wall_normal = hit["normal"]
-
-
-func _start_wall_jump() -> void:
-	var normal: Vector3 = _wall_normal
-
-	var along: Vector3 = velocity.slide(up_direction).slide(normal)
-	_start_jump(JumpKind.WALL, along + normal * wall_jump_away_speed)
-
-	_end_wall_movement(true)
-	jump_buffer_timer = 0.0
-	jumps_used = 1
-
-	_wall_kick_normal = normal
-	_wall_kick_face_timer = wall_kick_face_time
-
-	if animation_controller:
-		animation_controller.play_wall_kick()
-
-
-func _end_wall_movement(with_regrab_delay: bool) -> void:
-	if wall_state == WallState.NONE:
-		return
-
-	_set_wall_state(WallState.NONE)
-	wall_side = 0
-
-	if with_regrab_delay:
-		_wall_lockout_timer = wall_regrab_delay
-
-
-func _set_wall_state(state: WallState) -> void:
-	if state != WallState.NONE:
-		_wall_kick_face_timer = 0.0
-
-	wall_state = state
-	is_wall_running = state == WallState.RUNNING
-	is_wall_sliding = state == WallState.SLIDING
-
-
-func _update_wall_side() -> void:
-	var right: Vector3 = _wall_run_direction.cross(up_direction)
-	wall_side = 1 if right.dot(-_wall_normal) > 0.0 else -1
-
-
-func _face_wall(delta: float, normal: Vector3, turn_speed: float) -> void:
-	var toward_wall: Vector3 = (-normal).slide(up_direction)
-	if toward_wall.length_squared() < 0.0001:
-		return
-
-	var target_basis := Basis.looking_at(toward_wall.normalized(), up_direction)
-	model_yaw_basis = Basis(
-		model_yaw_basis
-		.get_rotation_quaternion()
-		.slerp(
-			target_basis.get_rotation_quaternion(),
-			clampf(turn_speed * delta, 0.0, 1.0)
-		)
-	)
-
-
-func _probe_wall(direction: Vector3) -> Dictionary:
-	var from: Vector3 = get_body_center()
-	var query := PhysicsRayQueryParameters3D.create(
-		from,
-		from + direction * wall_check_distance,
-		collision_mask,
-		[get_rid()]
-	)
-	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
-
-	if hit.is_empty():
-		return {}
-
-	var collider: Object = hit["collider"]
-	if collider is CharacterBody3D or collider is RigidBody3D:
-		return {}
-
-	var surface_normal: Vector3 = hit["normal"]
-	var flat: Vector3 = surface_normal.slide(up_direction)
-
-	if absf(surface_normal.dot(up_direction)) > 0.3 or flat.length_squared() < 0.0001:
-		return {}
-
-	hit["normal"] = flat.normalized()
-	return hit
-
-
-enum LedgeState { NONE, HANGING, CLIMBING }
-
-var ledge_state: LedgeState = LedgeState.NONE
-var is_ledge_hanging := false
-var is_ledge_climbing := false
-var _ledge_normal: Vector3 = Vector3.ZERO
-var _ledge_hang_position: Vector3 = Vector3.ZERO
-var _ledge_stand_position: Vector3 = Vector3.ZERO
-var _ledge_climb_start: Vector3 = Vector3.ZERO
-var _ledge_timer: float = 0.0
-var _ledge_lockout_timer: float = 0.0
-
-
-func _set_ledge_state(state: LedgeState) -> void:
-	ledge_state = state
-	is_ledge_hanging = state == LedgeState.HANGING
-	is_ledge_climbing = state == LedgeState.CLIMBING
-
-
-func _get_capsule_radius() -> float:
-	if player_collision_shape:
-		var capsule := player_collision_shape.shape as CapsuleShape3D
-		if capsule:
-			return capsule.radius
-
-	return 0.3
-
-
-func _ledge_ray(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3) -> Dictionary:
-	var query := PhysicsRayQueryParameters3D.create(from, to, collision_mask, [get_rid()])
-	var hit: Dictionary = space.intersect_ray(query)
-
-	if hit.is_empty():
-		return {}
-
-	var collider: Object = hit["collider"]
-	if collider is CharacterBody3D or collider is RigidBody3D:
-		return {}
-
-	return hit
-
-
-func _ledge_position_clear(space: PhysicsDirectSpaceState3D, feet_position: Vector3) -> bool:
-	if not player_collision_shape or not player_collision_shape.shape:
-		return true
-
-	var query := PhysicsShapeQueryParameters3D.new()
-	query.shape = player_collision_shape.shape
-	query.transform = Transform3D(
-		global_basis.orthonormalized(),
-		feet_position + up_direction * (NORMAL_COLLISION_Y + LEDGE_CLEARANCE_LIFT)
-	)
-	query.collision_mask = collision_mask
-	query.exclude = [get_rid()]
-
-	return space.intersect_shape(query, 1).is_empty()
-
-
-func _ledge_stand_supported(
-	space: PhysicsDirectSpaceState3D,
-	stand_position: Vector3,
-	wall_normal: Vector3
-) -> bool:
-	var reach: float = _get_capsule_radius() * ledge_support_footprint
-	var tangent: Vector3 = wall_normal.cross(up_direction).normalized()
-	var expected_floor: Vector3 = stand_position - up_direction * LEDGE_STAND_LIFT
-
-	var offsets: Array[Vector3] = [
-		Vector3.ZERO,
-		tangent * reach,
-		-tangent * reach,
-		wall_normal * reach,
-		-wall_normal * reach
-	]
-
-	for offset in offsets:
-		var probe: Vector3 = expected_floor + offset
-		var hit: Dictionary = _ledge_ray(
-			space,
-			probe + up_direction * ledge_support_tolerance,
-			probe - up_direction * ledge_support_tolerance
-		)
-
-		if hit.is_empty():
-			return false
-
-		var hit_normal: Vector3 = hit["normal"]
-		if hit_normal.dot(up_direction) < LEDGE_MIN_TOP_NORMAL:
-			return false
-
-	return true
-
-
-func _ledge_segment_clear(
-	space: PhysicsDirectSpaceState3D,
-	from: Vector3,
-	to: Vector3
-) -> bool:
-	var step: float = maxf(ledge_path_check_step, 0.05)
-	var steps: int = maxi(ceili(from.distance_to(to) / step), 1)
-
-	for i in range(1, steps):
-		var feet_position: Vector3 = from.lerp(to, float(i) / float(steps))
-		if not _ledge_position_clear(space, feet_position):
-			return false
-
-	return true
-
-
-func _ledge_path_clear(
-	space: PhysicsDirectSpaceState3D,
-	hang_position: Vector3,
-	stand_position: Vector3
-) -> bool:
-	var rise: float = (stand_position - hang_position).dot(up_direction)
-	var mid: Vector3 = hang_position + up_direction * rise
-
-	if not _ledge_position_clear(space, mid):
-		return false
-
-	return (
-		_ledge_segment_clear(space, hang_position, mid)
-		and _ledge_segment_clear(space, mid, stand_position)
-	)
-
-
-func _try_grab_ledge() -> bool:
-	if ledge_state != LedgeState.NONE or _ledge_lockout_timer > 0.0:
-		return false
-
-	if is_on_floor() or movement_locked or is_ots_mode or is_sliding or is_diving:
-		return false
-
-	if wall_state == WallState.RUNNING:
-		return false
-
-	if velocity.dot(up_direction) > ledge_max_rise_speed:
-		return false
-
-	var direction: Vector3 = _get_input_direction()
-	if direction.length_squared() < 0.0001:
-		direction = velocity.slide(up_direction)
-		if direction.length() < 1.0:
-			return false
-		direction = direction.normalized()
-
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	var chest: Vector3 = global_position + up_direction * ledge_wall_check_height
-
-	var wall_hit: Dictionary = _ledge_ray(space, chest, chest + direction * ledge_reach)
-	if wall_hit.is_empty():
-		return false
-
-	var surface_normal: Vector3 = wall_hit["normal"]
-	if absf(surface_normal.dot(up_direction)) > 0.3:
-		return false
-
-	var wall_normal: Vector3 = surface_normal.slide(up_direction)
-	if wall_normal.length_squared() < 0.0001:
-		return false
-	wall_normal = wall_normal.normalized()
-
-	if direction.dot(-wall_normal) < 0.5:
-		return false
-
-	var wall_position: Vector3 = wall_hit["position"]
-	var probe_point: Vector3 = wall_position - wall_normal * ledge_top_probe_depth
-	var top_from: Vector3 = probe_point + up_direction * (ledge_max_height - ledge_wall_check_height)
-	var top_to: Vector3 = probe_point + up_direction * (ledge_min_height - ledge_wall_check_height)
-
-	var top_hit: Dictionary = _ledge_ray(space, top_from, top_to)
-	if top_hit.is_empty():
-		return false
-
-	var top_normal: Vector3 = top_hit["normal"]
-	if top_normal.dot(up_direction) < LEDGE_MIN_TOP_NORMAL:
-		return false
-
-	var top_position: Vector3 = top_hit["position"]
-	var top_offset: float = (top_position - wall_position).dot(up_direction)
-	var edge_point: Vector3 = wall_position + up_direction * top_offset
-	var radius: float = _get_capsule_radius()
-
-	var hang_position: Vector3 = (
-		edge_point
-		+ wall_normal * (radius + ledge_wall_gap)
-		- up_direction * ledge_hang_drop
-	)
-	var stand_position: Vector3 = (
-		edge_point
-		- wall_normal * (radius + ledge_stand_inset)
-		+ up_direction * LEDGE_STAND_LIFT
-	)
-
-	if not _ledge_stand_supported(space, stand_position, wall_normal):
-		return false
-
-	if not _ledge_position_clear(space, hang_position):
-		return false
-
-	if not _ledge_position_clear(space, stand_position):
-		return false
-
-	if not _ledge_path_clear(space, hang_position, stand_position):
-		return false
-
-	hard_stop()
-
-	_ledge_normal = wall_normal
-	_ledge_hang_position = hang_position
-	_ledge_stand_position = stand_position
-	_ledge_timer = 0.0
-	jump_buffer_timer = 0.0
-	coyote_timer = 0.0
-	_set_ledge_state(LedgeState.HANGING)
-	return true
-
-
-func _update_ledge(delta: float) -> void:
-	velocity = Vector3.ZERO
-	pending_acceleration = Vector3.ZERO
-	_ledge_timer += delta
-
-	if movement_locked:
-		_release_ledge()
-		return
-
-	var face_basis := Basis.looking_at(-_ledge_normal, up_direction)
-	model_yaw_basis = Basis(
-		model_yaw_basis
-		.get_rotation_quaternion()
-		.slerp(face_basis.get_rotation_quaternion(), clampf(rotation_speed * 2.0 * delta, 0.0, 1.0))
-	)
-
-	if ledge_state == LedgeState.HANGING:
-		var weight: float = 1.0 - exp(-delta / maxf(ledge_snap_time, 0.001))
-		global_position = global_position.lerp(_ledge_hang_position, weight)
-
-		if _ledge_timer >= ledge_min_hang_time:
-			if jump_buffer_timer > 0.0:
-				jump_buffer_timer = 0.0
-				_ledge_timer = 0.0
-				_ledge_climb_start = global_position
-				_set_ledge_state(LedgeState.CLIMBING)
-			elif _get_input_direction().dot(_ledge_normal) > 0.5:
-				_release_ledge()
-	elif ledge_state == LedgeState.CLIMBING:
-		_update_ledge_climb()
-
-	_update_turn_rate(delta)
-	_apply_lean(delta)
-
-
-func _update_ledge_climb() -> void:
-	var t: float = clampf(_ledge_timer / maxf(ledge_climb_time, 0.01), 0.0, 1.0)
-	var rise: float = (_ledge_stand_position - _ledge_climb_start).dot(up_direction)
-	var mid: Vector3 = _ledge_climb_start + up_direction * rise
-
-	if t < ledge_climb_vertical_fraction:
-		var vertical_t: float = t / ledge_climb_vertical_fraction
-		global_position = _ledge_climb_start.lerp(mid, smoothstep(0.0, 1.0, vertical_t))
-	else:
-		var horizontal_t: float = (t - ledge_climb_vertical_fraction) / maxf(1.0 - ledge_climb_vertical_fraction, 0.001)
-		global_position = mid.lerp(_ledge_stand_position, smoothstep(0.0, 1.0, horizontal_t))
-
-	if t >= 1.0:
-		_finish_ledge_climb()
-
-
-func _finish_ledge_climb() -> void:
-	global_position = _ledge_stand_position
-	_set_ledge_state(LedgeState.NONE)
-	_ledge_lockout_timer = ledge_regrab_delay
-	coyote_timer = coyote_time
-	jumps_used = 0
-	velocity = -up_direction * 2.0
-	move_and_slide()
-
-
-func _release_ledge() -> void:
-	_set_ledge_state(LedgeState.NONE)
-	_ledge_lockout_timer = ledge_regrab_delay
-	coyote_timer = 0.0
-	jumps_used = 1
-	velocity = _ledge_normal * ledge_drop_push
+		start_crouch()
 
 
 func _update_model_orientation(delta: float) -> void:
@@ -1811,26 +833,15 @@ func _update_model_orientation(delta: float) -> void:
 	)
 
 
-func _measure_wall_gap(hit: Dictionary) -> float:
-	var hit_position: Vector3 = hit["position"]
-	var normal: Vector3 = hit["normal"]
-	var distance: float = (get_body_center() - hit_position).dot(normal)
-	return maxf(distance - _get_capsule_radius() - wall_run_wall_gap, 0.0)
-
-
-func _get_wall_stick_speed() -> float:
-	return WALL_STICK_SPEED + minf(_wall_gap * wall_run_attach_gain, wall_run_attach_max_speed)
-
-
 func _get_target_speed() -> float:
-	if is_sliding:
-		return _get_slide_speed()
+	if slide.is_active:
+		return slide.get_speed()
 
-	if is_diving:
-		return _dive_speed
+	if dive.is_active:
+		return dive.current_speed
 
-	if is_wall_running:
-		return _wall_run_speed
+	if wall.is_wall_running:
+		return wall.current_run_speed
 
 	if is_crouching:
 		return crouch_speed
@@ -1841,23 +852,15 @@ func _get_target_speed() -> float:
 func _get_target_motion() -> Dictionary:
 	var up := up_direction
 
-	if is_sliding:
-		return {
-			"target_velocity": _slide_direction * _get_target_speed(),
-			"target_forward": _slide_direction
-		}
+	if slide.is_active:
+		return slide.get_target_motion()
 
-	if is_diving:
-		return {
-			"target_velocity": _dive_direction * _dive_speed,
-			"target_forward": _dive_direction
-		}
+	if dive.is_active:
+		return dive.get_target_motion()
 
-	if is_wall_running:
-		return {
-			"target_velocity": _wall_run_direction * _get_target_speed() - _wall_normal * _get_wall_stick_speed(),
-			"target_forward": _wall_run_direction
-		}
+	var wall_motion: Dictionary = wall.get_target_motion()
+	if not wall_motion.is_empty():
+		return wall_motion
 
 	if move_input.length_squared() == 0.0:
 		return {
@@ -1865,7 +868,7 @@ func _get_target_motion() -> Dictionary:
 			"target_forward": (-character_model.global_basis.z).slide(up).normalized()
 		}
 
-	var dir := _get_input_direction()
+	var dir := get_input_direction()
 	var spd := _get_target_speed()
 
 	return {
@@ -1877,7 +880,7 @@ func _get_target_motion() -> Dictionary:
 func _handle_movement(delta: float) -> void:
 
 	var is_moving_input: bool = (
-		move_input.length_squared() > 0.0 or is_sliding or is_wall_running or is_diving
+		move_input.length_squared() > 0.0 or slide.is_active or wall.is_wall_running or dive.is_active
 	)
 
 	if is_moving_input:
@@ -1896,12 +899,12 @@ func _handle_movement(delta: float) -> void:
 	var target_planar_velocity: Vector3 = target_velocity.slide(up_direction)
 
 	var max_accel: float
-	if is_sliding:
-		max_accel = slide_acceleration
-	elif is_wall_running:
-		max_accel = WALL_RUN_ACCELERATION
-	elif is_diving:
-		max_accel = dive_acceleration
+	if slide.is_active:
+		max_accel = slide.acceleration
+	elif wall.is_wall_running or wall.is_wall_climbing:
+		max_accel = PlayerWallMovement.RUN_ACCELERATION
+	elif dive.is_active:
+		max_accel = dive.acceleration
 	else:
 		max_accel = (move_acceleration if is_moving_input else move_deceleration) * air_factor
 
@@ -1915,7 +918,7 @@ func _handle_movement(delta: float) -> void:
 		move_direction = target["target_forward"]
 		current_speed = _get_target_speed()
 
-		if not is_wall_sliding and _wall_kick_face_timer <= 0.0:
+		if not wall.is_wall_sliding and not wall.is_wall_climbing and not wall.kick_facing:
 			var up := up_direction
 			var target_forward := move_direction.slide(up).normalized()
 
@@ -1927,16 +930,13 @@ func _handle_movement(delta: float) -> void:
 					.slerp(target_basis.get_rotation_quaternion(), rotation_speed * delta)
 				)
 
-	if is_wall_sliding:
-		_face_wall(delta, _wall_normal, wall_slide_turn_speed)
-	elif _wall_kick_face_timer > 0.0:
-		_face_wall(delta, _wall_kick_normal, wall_kick_turn_speed)
+	wall.update_facing(delta)
 
-	_update_turn_rate(delta)
-	_apply_lean(delta)
+	update_turn_rate(delta)
+	apply_lean(delta)
 
 
-func _update_turn_rate(delta: float) -> void:
+func update_turn_rate(delta: float) -> void:
 	var up := up_direction
 	var forward := (-model_yaw_basis.z).slide(up).normalized()
 
@@ -1949,7 +949,7 @@ func _update_turn_rate(delta: float) -> void:
 	prev_model_forward = forward
 
 
-func _apply_lean(delta: float) -> void:
+func apply_lean(delta: float) -> void:
 	var target_lean := 0.0
 
 	var top_speed: float = maxf(maxf(lean_top_speed, run_speed), 0.001)
@@ -1962,8 +962,8 @@ func _apply_lean(delta: float) -> void:
 		var normalized_turn := clampf(turn_rate / lean_turn_rate_reference, -1.0, 1.0)
 		target_lean = normalized_turn * max_angle * shaped_fraction
 
-	if is_wall_running and wall_side != 0:
-		target_lean += deg_to_rad(wall_run_lean_angle_deg) * float(wall_side)
+	if wall.is_wall_running and wall.side != 0:
+		target_lean += deg_to_rad(wall_run_lean_angle_deg) * float(wall.side)
 
 	var max_step := deg_to_rad(lean_max_angle_deg) * lean_smoothing_speed * delta
 	current_lean = move_toward(current_lean, target_lean, max_step)
@@ -1983,7 +983,7 @@ func _apply_lean(delta: float) -> void:
 		var air_fraction := clampf(vertical_speed / maxf(squash_stretch_vertical_speed, 0.001), 0.0, 1.0)
 		target_squash_stretch = maxf(target_squash_stretch, air_fraction * squash_stretch_max_stretch)
 
-	if is_sliding:
+	if slide.is_active:
 		target_squash_stretch = minf(target_squash_stretch, -squash_stretch_slide_squash)
 
 	var spring_accel: float = (
