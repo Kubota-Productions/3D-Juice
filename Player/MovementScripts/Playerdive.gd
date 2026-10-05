@@ -32,7 +32,7 @@ var wall_climb_available := false
 var climb_used := false
 var climb_elapsed: float = 0.0
 var climb_start_speed: float = 0.0
-var climb_along: Vector3 = Vector3.ZERO
+
 
 
 func cancel() -> void:
@@ -196,7 +196,7 @@ func get_wall_climb_speed() -> float:
 func get_wall_climb_along_velocity() -> Vector3:
 	var total: float = maxf(wall_climb_time, 0.01)
 	var remaining: float = 1.0 - clampf(climb_elapsed / total, 0.0, 1.0)
-	return climb_along * remaining
+	return Vector3.ZERO
 
 
 func try_start_wall_climb() -> bool:
@@ -231,13 +231,12 @@ func try_start_wall_climb() -> bool:
 		base_speed + into_wall * wall_climb_momentum_transfer,
 		maxf(wall_climb_max_speed, base_speed)
 	)
-	climb_along = planar.slide(normal)
 
 	player.jump_phase = Player.JumpPhase.NONE
 	player.jump_phase_timer = 0.0
 
 	player.add_impulse(
-		climb_along - planar
+		-planar
 		- normal * PlayerWallMovement.STICK_SPEED
 		+ player.up_direction * (climb_start_speed - predicted_velocity.dot(player.up_direction))
 	)
@@ -261,9 +260,19 @@ func update_wall_climb(delta: float) -> void:
 
 
 func apply_wall_climb_gravity(delta: float) -> void:
+	var projected: Vector3 = player.velocity + player.pending_acceleration * delta
+
 	player.add_acceleration(Player.acceleration_toward(
-		(player.velocity + player.pending_acceleration * delta).project(player.up_direction),
+		projected.project(player.up_direction),
 		player.up_direction * get_wall_climb_speed(),
+		WALL_CLIMB_ACCELERATION,
+		delta
+	))
+	
+	var lateral: Vector3 = projected.slide(player.up_direction).slide(player.wall.wall_normal)
+	player.add_acceleration(Player.acceleration_toward(
+		lateral,
+		Vector3.ZERO,
 		WALL_CLIMB_ACCELERATION,
 		delta
 	))

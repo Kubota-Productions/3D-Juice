@@ -111,7 +111,10 @@ var slide: PlayerSlide
 var dive: PlayerDive
 var wall: PlayerWallMovement
 var ledge: PlayerLedgeGrab
-
+var has_slide := false
+var has_dive := false
+var has_wall := false
+var has_ledge := false
 
 var is_sliding: bool:
 	get:
@@ -181,23 +184,24 @@ func _setup_modules() -> void:
 
 		live_modules.append(instance)
 
+	has_slide = slide != null
+	has_dive = dive != null
+	has_wall = wall != null
+	has_ledge = ledge != null
+
 	if slide == null:
-		push_warning("Player: no PlayerSlide in movement_modules -- using defaults.")
 		slide = PlayerSlide.new()
 		live_modules.append(slide)
 
 	if dive == null:
-		push_warning("Player: no PlayerDive in movement_modules -- using defaults.")
 		dive = PlayerDive.new()
 		live_modules.append(dive)
 
 	if wall == null:
-		push_warning("Player: no PlayerWallMovement in movement_modules -- using defaults.")
 		wall = PlayerWallMovement.new()
 		live_modules.append(wall)
 
 	if ledge == null:
-		push_warning("Player: no PlayerLedgeGrab in movement_modules -- using defaults.")
 		ledge = PlayerLedgeGrab.new()
 		live_modules.append(ledge)
 
@@ -380,11 +384,15 @@ func _physics_process(delta: float) -> void:
 	_update_ground_state(delta)
 
 	if not ledge.is_active():
-		dive.update(delta)
-		slide.update(delta)
+		if has_dive:
+			dive.update(delta)
+		if has_slide:
+			slide.update(delta)
 		_update_crouch(delta)
-		wall.update(delta)
-		ledge.try_grab()
+		if has_wall:
+			wall.update(delta)
+		if has_ledge:
+			ledge.try_grab()
 
 	if ledge.is_active():
 		ledge.update(delta)
@@ -402,7 +410,8 @@ func _physics_process(delta: float) -> void:
 		var up_speed_before: float = velocity.dot(up_direction)
 		move_and_slide()
 		_limit_unearned_rise(up_speed_before)
-		slide.try_steep_slope_slide()
+		if has_slide:
+			slide.try_steep_slope_slide()
 
 	aim_pivot.global_position = get_body_center()
 	spring_arm.update_pivot_position(delta)
