@@ -62,6 +62,15 @@ var landing_timer: float = 0.0
 ## Crossfade (seconds) from the dive into the slide it lands in.
 @export var dive_to_slide_blend_time: float = 0.1
 
+@export_group("Hover Blending")
+## Name of the hover clip on the AnimationPlayer. If it doesn't exist, the
+## Hover state reuses the Fall animation until you add one.
+@export var hover_animation_name: String = "Hover"
+## Crossfade (seconds) into the hover from any airborne state.
+@export var into_hover_blend_time: float = 0.15
+## Crossfade (seconds) out of the hover into falling, landing, wall moves, etc.
+@export var out_of_hover_blend_time: float = 0.2
+
 
 enum AnimState {
 	IDLE,
@@ -81,7 +90,8 @@ enum AnimState {
 	CROUCH,
 	WALL_RUN,
 	DIVE,
-	WALL_CLIMB
+	WALL_CLIMB,
+	HOVER
 }
 
 const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
@@ -109,6 +119,30 @@ const DIVE_ENTRY_STATES: Array[String] = [
 	"WallKick",
 	"JumpOutOfSlide",
 	"Land"
+]
+
+const HOVER_STATE := "Hover"
+const HOVER_FALLBACK_STATE := "Fall"
+
+## States the player can be in when a hover starts.
+const HOVER_ENTRY_STATES: Array[String] = [
+	"Fall",
+	"Jump",
+	"DoubleJump",
+	"TripleJump",
+	"WallKick",
+	"JumpOutOfSlide",
+	"Land"
+]
+
+## States a hover can hand off to (release -> Fall, landing -> Land, etc.).
+const HOVER_EXIT_STATES: Array[String] = [
+	"Fall",
+	"Land",
+	"WallSlide",
+	"WallRunLeft",
+	"WallRunRight",
+	"LedgeHang"
 ]
 
 var current_anim_state := AnimState.IDLE
@@ -153,6 +187,7 @@ func _ready() -> void:
 
 	_setup_wall_run_time_scale()
 	_setup_dive_transitions()
+	_setup_hover_state()
 
 	animation_tree.active = true
 
@@ -315,6 +350,43 @@ func _ensure_transition(
 	transition.switch_mode = AnimationNodeStateMachineTransition.SWITCH_MODE_IMMEDIATE
 	transition.advance_mode = AnimationNodeStateMachineTransition.ADVANCE_MODE_ENABLED
 
+## Makes sure the tree has a "Hover" state wired up. If you've already built
+## one in the AnimationTree editor it's used as-is and only missing transitions
+## are added. Otherwise one is created here, playing hover_animation_name, or
+## reusing the Fall animation until a real hover clip exists.
+func _setup_hover_state() -> void:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if not machine:
+		return
+
+	if not machine.has_node(HOVER_STATE):
+		var hover_node := AnimationNodeAnimation.new()
+
+		if animation_player and animation_player.has_animation(hover_animation_name):
+			hover_node.animation = StringName(hover_animation_name)
+		elif machine.has_node(HOVER_FALLBACK_STATE) and machine.get_node(HOVER_FALLBACK_STATE) is AnimationNodeAnimation:
+			var fall_node := machine.get_node(HOVER_FALLBACK_STATE) as AnimationNodeAnimation
+			hover_node.animation = fall_node.animation
+			push_warning(
+				"PlayerAnimationController: no '%s' animation found -- Hover is reusing the Fall animation."
+				% hover_animation_name
+			)
+		else:
+			push_warning(
+				"PlayerAnimationController: couldn't create a Hover state (no '%s' animation and no Fall state to borrow from)."
+				% hover_animation_name
+			)
+			return
+
+		machine.add_node(HOVER_STATE, hover_node, Vector2(400.0, -200.0))
+
+	for from_state in HOVER_ENTRY_STATES:
+		if machine.has_node(from_state):
+			_ensure_transition(machine, from_state, HOVER_STATE, into_hover_blend_time)
+
+	for to_state in HOVER_EXIT_STATES:
+		if machine.has_node(to_state):
+			_ensure_transition(machine, HOVER_STATE, to_state, out_of_hover_blend_time)
 
 ## Keeps both ground blend spaces positioned at the current speed. Called
 ## while sliding (when neither is the active state) so whichever one the slide
@@ -570,6 +642,13 @@ func update(delta: float) -> void:
 			current_anim_state = AnimState.DIVE
 
 			_travel_if_present(DIVE_STATE)
+	if player.is_hovering:
+
+		if current_anim_state != AnimState.HOVER:
+
+			current_anim_state = AnimState.HOVER
+
+			_travel_if_present(HOVER_STATE)
 
 		was_on_floor = on_floor
 		was_sliding = false

@@ -12,8 +12,9 @@ enum WallState { NONE, RUNNING, SLIDING, CLIMBING }
 @export_range(0.1, 0.9) var run_apex_fraction: float = 0.4
 @export var slide_speed: float = 2.0
 @export var slide_turn_speed: float = 16.0
-@export var kick_turn_speed: float = 20.0
+@export var kick_turn_speed: float = 8
 @export var kick_turn_back_angle_deg: float = 25.0
+@export var wall_kick_turn_wait_timer: float = 0.2
 @export var jump_away_speed: float = 6.5
 @export var jump_air_control: float = 0.2
 @export var regrab_delay: float = 0.25
@@ -46,6 +47,7 @@ var lockout_timer: float = 0.0
 var kick_facing := false
 var kick_normal: Vector3 = Vector3.ZERO
 var kick_launch_velocity: Vector3 = Vector3.ZERO
+var kick_turn_wait_left: float = 0.0
 var moves_used: int = 0
 var gap: float = 0.0
 
@@ -235,6 +237,7 @@ func start_wall_jump() -> void:
 	kick_normal = normal
 	kick_launch_velocity = launch
 	kick_facing = true
+	kick_turn_wait_left = wall_kick_turn_wait_timer
 
 	if player.animation_controller:
 		player.animation_controller.play_wall_kick()
@@ -319,10 +322,15 @@ func update_facing(delta: float) -> void:
 	if is_wall_sliding or is_wall_climbing:
 		face_wall(delta, wall_normal, slide_turn_speed)
 	elif kick_facing:
+		kick_turn_wait_left = maxf(kick_turn_wait_left - delta, 0.0)
+		if kick_turn_wait_left > 0.0:
+			return
 		face_away_from_wall(delta, kick_normal, kick_turn_speed)
 
 
 func update_kick_facing() -> void:
+	if kick_turn_wait_left > 0.0:
+		return
 	var planar: Vector3 = player.velocity.slide(player.up_direction)
 
 	if planar.length() < KICK_MIN_SPEED:

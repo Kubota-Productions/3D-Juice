@@ -74,6 +74,7 @@ func hard_stop() -> void:
 	wall.lockout_timer = 0.0
 	wall.kick_facing = false
 	ledge.cancel()
+	hover.cancel()
 
 
 @export var rotation_pivot: Node3D
@@ -111,10 +112,12 @@ var slide: PlayerSlide
 var dive: PlayerDive
 var wall: PlayerWallMovement
 var ledge: PlayerLedgeGrab
+var hover: PlayerHover
 var has_slide := false
 var has_dive := false
 var has_wall := false
 var has_ledge := false
+var has_hover := false
 
 var is_sliding: bool:
 	get:
@@ -123,6 +126,10 @@ var is_sliding: bool:
 var is_diving: bool:
 	get:
 		return dive != null and dive.is_active
+
+var is_hovering: bool:
+	get:
+		return hover != null and hover.is_active
 
 var is_wall_running: bool:
 	get:
@@ -178,6 +185,8 @@ func _setup_modules() -> void:
 			wall = instance as PlayerWallMovement
 		elif instance is PlayerLedgeGrab and ledge == null:
 			ledge = instance as PlayerLedgeGrab
+		elif instance is PlayerHover and hover == null:
+			hover = instance as PlayerHover
 		else:
 			push_warning("Player: ignoring '%s' in movement_modules (unknown type, or a second one of the same type)." % module.resource_path)
 			continue
@@ -188,6 +197,7 @@ func _setup_modules() -> void:
 	has_dive = dive != null
 	has_wall = wall != null
 	has_ledge = ledge != null
+	has_hover = hover != null
 
 	if slide == null:
 		slide = PlayerSlide.new()
@@ -196,6 +206,9 @@ func _setup_modules() -> void:
 	if dive == null:
 		dive = PlayerDive.new()
 		live_modules.append(dive)
+	if hover == null:
+		hover = PlayerHover.new()
+		live_modules.append(hover)
 
 	if wall == null:
 		wall = PlayerWallMovement.new()
@@ -391,6 +404,8 @@ func _physics_process(delta: float) -> void:
 		_update_crouch(delta)
 		if has_wall:
 			wall.update(delta)
+		if has_hover:
+			hover.update(delta)
 		if has_ledge:
 			ledge.try_grab()
 
@@ -492,8 +507,6 @@ func _update_ground_state(delta: float) -> void:
 		if not was_grounded_last_frame and not slide.is_active and not dive.is_active and planar_velocity.length() > max_landing_speed:
 			landing_brake_timer = landing_brake_time
 
-		# A slide re-touching the ground at speed is not a hard landing; the
-		# brake would drag it down to max_landing_speed.
 		if slide.is_active or dive.is_active:
 			landing_brake_timer = 0.0
 		elif landing_brake_timer > 0.0:
@@ -510,6 +523,7 @@ func _update_ground_state(delta: float) -> void:
 		jump_phase = JumpPhase.NONE
 		wall.kick_facing = false
 		dive.on_grounded()
+		hover.on_grounded()
 		_set_jump_profile()
 	else:
 		coyote_timer -= delta
@@ -571,6 +585,9 @@ func _apply_gravity(delta: float) -> void:
 		return
 
 	if dive.apply_gravity(delta):
+		return
+	
+	if hover.apply_gravity(delta):
 		return
 
 	if jump_phase == JumpPhase.RISING and is_on_ceiling():
@@ -853,6 +870,8 @@ func _get_target_speed() -> float:
 	if wall.is_wall_running:
 		return wall.current_run_speed
 
+	if hover.is_active:
+		return hover.current_speed
 	if is_crouching:
 		return crouch_speed
 
@@ -871,6 +890,8 @@ func _get_target_motion() -> Dictionary:
 	var wall_motion: Dictionary = wall.get_target_motion()
 	if not wall_motion.is_empty():
 		return wall_motion
+	if hover.is_active:
+		return hover.get_target_motion()
 
 	if move_input.length_squared() == 0.0:
 		return {
@@ -890,7 +911,7 @@ func _get_target_motion() -> Dictionary:
 func _handle_movement(delta: float) -> void:
 
 	var is_moving_input: bool = (
-		move_input.length_squared() > 0.0 or slide.is_active or wall.is_wall_running or dive.is_active
+		move_input.length_squared() > 0.0 or slide.is_active or wall.is_wall_running or dive.is_active or hover.is_active
 	)
 
 	if is_moving_input:
@@ -915,6 +936,8 @@ func _handle_movement(delta: float) -> void:
 		max_accel = PlayerWallMovement.RUN_ACCELERATION
 	elif dive.is_active:
 		max_accel = dive.acceleration
+	elif hover.is_active:
+		max_accel = hover.acceleration
 	else:
 		max_accel = (move_acceleration if is_moving_input else move_deceleration) * air_factor
 

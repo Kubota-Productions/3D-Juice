@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="PlayerHover" format=3 uid="uid://c65jtr2peytw6"]
+
+[ext_resource type="Script" uid="uid://b2ljd4hbrwy6j" path="res://Player/MovementScripts/Playerhover.gd" id="1_60q88"]
+
+[resource]
+script = ExtResource("1_60q88")
+drift_speed = 4.0
+slowdown_time = 1.3
