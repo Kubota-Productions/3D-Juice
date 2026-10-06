@@ -13,6 +13,9 @@ ssao_enabled = true
 ssao_radius = 10.5
 ssao_intensity = 2.31
 
+[sub_resource type="BoxShape3D" id="BoxShape3D_g4v7s"]
+size = Vector3(3, 1, 3)
+
 [node name="Node3D" type="Node3D" unique_id=1767665750]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=512153090]
@@ -1592,29 +1595,49 @@ material_override = ExtResource("1_er3k5")
 use_collision = true
 size = Vector3(3, 1, 3)
 
-[node name="CSGBox3D188" type="CSGBox3D" parent="ENV" unique_id=2121696972]
+[node name="CSGBox3D188" type="CSGBox3D" parent="ENV" unique_id=2121696972 groups=["tkplatform"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.50414, 1, -4.5)
 material_override = ExtResource("4_eav6o")
 use_collision = true
 size = Vector3(3, 1, 3)
 
-[node name="CSGBox3D403" type="CSGBox3D" parent="ENV" unique_id=415916265]
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D188" unique_id=921484425]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/CSGBox3D188/AnimatableBody3D" unique_id=1515317784]
+shape = SubResource("BoxShape3D_g4v7s")
+
+[node name="CSGBox3D403" type="CSGBox3D" parent="ENV" unique_id=415916265 groups=["tkplatform"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.50414, 1, -9.5)
 material_override = ExtResource("4_eav6o")
 use_collision = true
 size = Vector3(3, 1, 3)
 
-[node name="CSGBox3D447" type="CSGBox3D" parent="ENV" unique_id=997429975]
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D403" unique_id=1323392651]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/CSGBox3D403/AnimatableBody3D" unique_id=137553246]
+shape = SubResource("BoxShape3D_g4v7s")
+
+[node name="CSGBox3D447" type="CSGBox3D" parent="ENV" unique_id=997429975 groups=["tkplatform"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.504139, 1, -9.5)
 material_override = ExtResource("4_eav6o")
 use_collision = true
 size = Vector3(3, 1, 3)
 
-[node name="CSGBox3D448" type="CSGBox3D" parent="ENV" unique_id=1117882486]
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D447" unique_id=12608789]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/CSGBox3D447/AnimatableBody3D" unique_id=938288014]
+shape = SubResource("BoxShape3D_g4v7s")
+
+[node name="CSGBox3D448" type="CSGBox3D" parent="ENV" unique_id=1117882486 groups=["tkplatform"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.504139, 1, -4.5)
 material_override = ExtResource("4_eav6o")
 use_collision = true
 size = Vector3(3, 1, 3)
+
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D448" unique_id=931219691]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/CSGBox3D448/AnimatableBody3D" unique_id=1452704712]
+shape = SubResource("BoxShape3D_g4v7s")
 
 [node name="CSGBox3D134" type="CSGBox3D" parent="ENV" unique_id=1286847901]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -44.31421, 1.5, -32)

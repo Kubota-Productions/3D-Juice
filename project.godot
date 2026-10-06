@@ -35,6 +35,7 @@ enabled=PackedStringArray()
 tktarget=""
 npc_heads=""
 interactable=""
+tkplatform=""
 
 [importer_defaults]
 

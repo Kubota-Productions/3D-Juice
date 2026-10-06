@@ -937,7 +937,7 @@ func _handle_movement(delta: float) -> void:
 	elif dive.is_active:
 		max_accel = dive.acceleration
 	elif hover.is_active:
-		max_accel = hover.acceleration
+		max_accel = hover.get_acceleration()
 	else:
 		max_accel = (move_acceleration if is_moving_input else move_deceleration) * air_factor
 
@@ -957,10 +957,13 @@ func _handle_movement(delta: float) -> void:
 
 			if target_forward.length_squared() > 0.001:
 				var target_basis := Basis.looking_at(target_forward, up)
+				var turn_speed: float = rotation_speed
+				if hover.is_active:
+					turn_speed *= hover.get_rotation_multiplier()
 				model_yaw_basis = Basis(
 					model_yaw_basis
 					.get_rotation_quaternion()
-					.slerp(target_basis.get_rotation_quaternion(), rotation_speed * delta)
+					.slerp(target_basis.get_rotation_quaternion(), turn_speed * delta)
 				)
 
 	wall.update_facing(delta)

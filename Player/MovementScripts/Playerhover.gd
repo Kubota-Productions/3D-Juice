@@ -35,6 +35,18 @@ extends PlayerMovementModule
 ## Keep this high enough to follow the slowdown, or it will lag behind it.
 @export var acceleration: float = 50.0
 
+@export_group("Control")
+## Planar speed at or above which the hover has full steering and turning.
+## Below it, both fall off toward their minimums as the player slows down.
+@export var control_full_speed: float = 8.0
+## Steering acceleration multiplier at a standstill (1.0 = no loss of control).
+@export_range(0.0, 1.0) var min_air_control: float = 0.08
+## Turn-rate multiplier at a standstill (1.0 = turns at full speed regardless).
+@export_range(0.0, 1.0) var min_rotation_multiplier: float = 0.15
+## Shapes how quickly control drops off. 1 = linear with speed. Above 1 the
+## hover stays responsive longer, then falls away sharply at low speed.
+@export var control_curve_power: float = 1.0
+
 ## Below this planar speed the travel direction isn't trusted.
 const HEADING_MIN_SPEED := 0.1
 
@@ -50,7 +62,8 @@ var _target_direction: Vector3 = Vector3.ZERO
 ## Slide/Crouch was pressed in midair and is still held. Lets a press made
 ## during the rise start the hover as soon as the player begins to fall.
 var _armed := false
-
+var _control_factor: float = 1.0
+var _rotation_factor: float = 1.0
 
 func get_slowdown_multiplier() -> float:
 	var extra: float = float(maxi(uses_this_airtime - 1, 0)) * extra_slowdown_per_use
@@ -146,6 +159,10 @@ func _should_end() -> bool:
 func _update_slowdown(delta: float) -> void:
 	var planar: Vector3 = player.velocity.slide(player.up_direction)
 	var speed: float = planar.length()
+	var speed_ratio: float = clampf(speed / maxf(control_full_speed, 0.001), 0.0, 1.0)
+	var shaped: float = pow(speed_ratio, maxf(control_curve_power, 0.001))
+	_control_factor = lerpf(min_air_control, 1.0, shaped)
+	_rotation_factor = lerpf(min_rotation_multiplier, 1.0, shaped)
 
 	# Track where the player is actually travelling.
 	if speed > HEADING_MIN_SPEED:
@@ -170,6 +187,14 @@ func _update_slowdown(delta: float) -> void:
 		_target_direction = _heading
 		current_speed = decayed
 
+## Steering/slowing acceleration this frame. Shrinks as the player slows down.
+func get_acceleration() -> float:
+	return acceleration * _control_factor
+
+
+## Multiplier on the model's turn speed this frame. Shrinks as the player slows down.
+func get_rotation_multiplier() -> float:
+	return _rotation_factor
 
 func apply_gravity(delta: float) -> bool:
 	if not is_active:

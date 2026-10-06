@@ -90,6 +90,40 @@ var _bob_noise: FastNoiseLite = FastNoiseLite.new()
 @export_group("Gravity Meter Cost")
 @export var gravity_meter_cost: float = 20.0
 
+# ============================================================
+# PLATFORMS (tkplatform)
+# ============================================================
+@export_group("Platforms")
+
+## Anything in this group can be raised with Telekinesis. Tag the
+## AnimatableBody3D itself, with Sync To Physics turned on, so the
+## player is carried along when it moves.
+@export var platform_group: String = "tkplatform"
+
+## How far the camera ray reaches when looking for a platform to raise.
+@export var platform_reach: float = 20.0
+
+## Rise speed (units/sec) while the button is held.
+@export var platform_rise_speed: float = 3.0
+
+## Seconds to ramp from standstill up to platform_rise_speed.
+@export var platform_rise_ramp_time: float = 0.3
+
+## Default maximum height above the platform's starting position.
+## A platform can override this by giving the node a float metadata
+## entry called "tk_max_rise".
+@export var platform_max_rise: float = 8.0
+
+## A locked platform starts sinking back to its starting height once
+## the player is farther than this from it (measured from the
+## platform's origin, so keep it larger than the platform itself and
+## larger than platform_reach). It never sinks while the player is
+## standing on it.
+@export var platform_return_distance: float = 30.0
+
+## Speed (units/sec) a platform sinks back to its starting height.
+@export var platform_return_speed: float = 2.0
+
 
 # ============================================================
 # HELD OBJECT DATA
@@ -107,6 +141,29 @@ class HeldObjectData:
 var held_objects: Array[HeldObjectData] = []
 
 var is_button_held: bool = false
+
+
+# ============================================================
+# PLATFORM DATA
+# ============================================================
+## RESTING:   at its starting height, untouched.
+## RISING:    the button is held and it's being raised.
+## LOCKED:    released -- frozen exactly where it was.
+## RETURNING: sinking back to its starting height.
+enum PlatformState { RESTING, RISING, LOCKED, RETURNING }
+
+class PlatformData:
+	var node: Node3D
+	var home_y: float = 0.0
+	var max_y: float = 0.0
+	var state: int = 0
+	var rise_velocity: float = 0.0
+
+## Every platform that has been touched, keyed by instance id.
+var platforms: Dictionary = {}
+
+## The platform currently being raised (null when none).
+var active_platform: PlatformData = null
 
 
 func setup(owner: CharacterBody3D, cam: Camera3D) -> void:
@@ -129,6 +186,11 @@ func handle_input(event: InputEvent) -> void:
 		if _try_grab():
 			return
 
+		# Looking at a tkplatform (or standing on one) -- raise it
+		# instead of launching.
+		if _try_start_platform():
+			return
+
 		# Nothing new to grab right now -- fall back to launching
 		# the oldest confirmed object.
 		_launch_first_confirmed_object()
@@ -140,6 +202,9 @@ func handle_input(event: InputEvent) -> void:
 		# it never counts as picked up, and nothing is deducted.
 		_cancel_unconfirmed_grab()
 
+		# Whatever platform was being raised locks right where it is.
+		_release_platform()
+
 
 # ============================================================
 # GRAB
@@ -147,6 +212,13 @@ func handle_input(event: InputEvent) -> void:
 func _has_unconfirmed() -> bool:
 	for data in held_objects:
 		if not data.confirmed:
+			return true
+	return false
+
+
+func _has_confirmed_objects() -> bool:
+	for data in held_objects:
+		if data.confirmed:
 			return true
 	return false
 
@@ -244,6 +316,10 @@ func _cancel_unconfirmed_grab() -> void:
 func update(delta: float) -> void:
 	if not camera or not player:
 		return
+
+	# Platforms go first: the early return below (nothing held) would
+	# otherwise skip them.
+	_update_platforms(delta)
 
 	# Holding the button with nothing currently in flight means "keep
 	# grabbing" -- this is what lets you sweep the reticle across
@@ -593,6 +669,215 @@ func _release_power(data: HeldObjectData) -> void:
 
 
 # ============================================================
+# PLATFORMS
+# ============================================================
+## Called on a Telekinesis press that didn't grab anything. Raises the
+## platform under the reticle, or failing that the one the player is
+## standing on. Returns true if a platform was picked.
+func _try_start_platform() -> bool:
+	var node: Node3D = _find_platform_under_reticle()
+
+	# Not aiming at one: fall back to the platform underfoot -- but only
+	# when there's no held object waiting to be launched, so this
+	# shortcut can never steal a launch.
+	if node == null and not _has_confirmed_objects():
+		node = _get_platform_underfoot()
+
+	if node == null:
+		return false
+
+	_begin_raising(node)
+	return true
+
+
+func _begin_raising(node: Node3D) -> void:
+	var id: int = node.get_instance_id()
+	var data: PlatformData = platforms.get(id)
+
+	if data == null:
+		data = PlatformData.new()
+		data.node = node
+		data.home_y = node.global_position.y
+
+		var max_rise: float = maxf(float(node.get_meta("tk_max_rise", platform_max_rise)), 0.0)
+		data.max_y = data.home_y + max_rise
+
+		platforms[id] = data
+		_warn_if_not_animatable(node)
+
+	# Works from wherever it currently is -- a locked or returning
+	# platform just carries on rising from its present height.
+	data.state = PlatformState.RISING
+	data.rise_velocity = 0.0
+	active_platform = data
+
+
+## Button released: the platform being raised freezes exactly where it is.
+func _release_platform() -> void:
+	if active_platform == null:
+		return
+
+	_lock_platform(active_platform)
+
+
+func _lock_platform(data: PlatformData) -> void:
+	data.state = PlatformState.LOCKED
+	data.rise_velocity = 0.0
+
+	if active_platform == data:
+		active_platform = null
+
+
+func _update_platforms(delta: float) -> void:
+	if platforms.is_empty():
+		return
+
+	# Safety net: if the button somehow isn't held any more, nothing
+	# should still be rising.
+	if active_platform != null and not is_button_held:
+		_release_platform()
+
+	var underfoot: Node3D = _get_platform_underfoot()
+
+	# keys() hands back a copy, so erasing inside the loop is safe.
+	for id in platforms.keys():
+		var data: PlatformData = platforms[id]
+
+		if not is_instance_valid(data.node):
+			if data == active_platform:
+				active_platform = null
+			platforms.erase(id)
+			continue
+
+		match data.state:
+			PlatformState.RISING:
+				_update_platform_rising(data, delta)
+			PlatformState.LOCKED:
+				_update_platform_locked(data, underfoot)
+			PlatformState.RETURNING:
+				_update_platform_returning(data, delta)
+
+
+func _update_platform_rising(data: PlatformData, delta: float) -> void:
+	# Ease up to full speed rather than starting at it.
+	var accel: float = platform_rise_speed / maxf(platform_rise_ramp_time, 0.001)
+	data.rise_velocity = move_toward(data.rise_velocity, platform_rise_speed, accel * delta)
+
+	var new_y: float = data.node.global_position.y + data.rise_velocity * delta
+
+	# Hit the top: stop there and lock.
+	if new_y >= data.max_y:
+		_set_platform_y(data.node, data.max_y)
+		_lock_platform(data)
+		return
+
+	_set_platform_y(data.node, new_y)
+
+
+func _update_platform_locked(data: PlatformData, underfoot: Node3D) -> void:
+	# Never sink out from under someone who's standing on it.
+	if underfoot == data.node:
+		return
+
+	var distance: float = player.global_position.distance_to(data.node.global_position)
+
+	if distance > platform_return_distance:
+		data.state = PlatformState.RETURNING
+
+
+func _update_platform_returning(data: PlatformData, delta: float) -> void:
+	var new_y: float = move_toward(
+		data.node.global_position.y,
+		data.home_y,
+		platform_return_speed * delta
+	)
+
+	_set_platform_y(data.node, new_y)
+
+	if is_equal_approx(new_y, data.home_y):
+		data.state = PlatformState.RESTING
+
+
+## Platforms only ever move on the world Y axis.
+func _set_platform_y(node: Node3D, y: float) -> void:
+	var p: Vector3 = node.global_position
+	p.y = y
+	node.global_position = p
+
+
+## Camera ray against the world. Held telekinesis objects are skipped so
+## they can't block the view of a platform.
+func _find_platform_under_reticle() -> Node3D:
+	if not camera or not player:
+		return null
+
+	var from: Vector3 = camera.global_position
+	var to: Vector3 = from + (-camera.global_transform.basis.z * platform_reach)
+
+	var excluded: Array[RID] = [player.get_rid()]
+	for data in held_objects:
+		if is_instance_valid(data.object):
+			excluded.append(data.object.get_rid())
+
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.exclude = excluded
+
+	var hit: Dictionary = player.get_world_3d().direct_space_state.intersect_ray(query)
+
+	if hit.is_empty():
+		return null
+
+	return _platform_from_collider(hit["collider"])
+
+
+## The tkplatform the player is standing on, if any. Uses the collisions
+## from this frame's move_and_slide().
+func _get_platform_underfoot() -> Node3D:
+	if not player:
+		return null
+
+	for i in range(player.get_slide_collision_count()):
+		var collision: KinematicCollision3D = player.get_slide_collision(i)
+
+		# Only surfaces that are actually floor, not a wall brushing past.
+		if collision.get_normal().dot(player.up_direction) < 0.7:
+			continue
+
+		var node: Node3D = _platform_from_collider(collision.get_collider())
+
+		if node:
+			return node
+
+	return null
+
+
+## Walks up from a collider to the first node tagged as a platform.
+func _platform_from_collider(collider: Object) -> Node3D:
+	var node := collider as Node
+
+	while node:
+		if node.is_in_group(platform_group) and node is Node3D:
+			return node as Node3D
+
+		node = node.get_parent()
+
+	return null
+
+
+func _warn_if_not_animatable(node: Node3D) -> void:
+	var body := node as AnimatableBody3D
+
+	if body == null:
+		push_warning(
+			"TelekinesisController: '%s' is in group '%s' but isn't an AnimatableBody3D -- the player won't be carried smoothly. Tag the AnimatableBody3D itself." % [node.name, platform_group]
+		)
+	elif not body.sync_to_physics:
+		push_warning(
+			"TelekinesisController: '%s' has Sync To Physics turned off -- the player won't ride it properly. Turn it on in the Inspector." % node.name
+		)
+
+
+# ============================================================
 # UTILITY
 # ============================================================
 ## Returns the number of currently held objects (including an
@@ -604,6 +889,11 @@ func get_held_object_count() -> int:
 ## Returns true if at least one object is being held.
 func has_held_objects() -> bool:
 	return not held_objects.is_empty()
+
+
+## Returns true while a platform is being raised.
+func has_active_platform() -> bool:
+	return active_platform != null
 
 
 ## Removes every currently held object, restores gravity, and
