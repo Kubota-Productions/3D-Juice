@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://cu2fdh4pvnmqf"]
+
+[ext_resource type="Texture2D" uid="uid://dmjmif4ownapx" path="res://Textures/Devmat3.png" id="1_hibuy"]
+
+[resource]
+albedo_texture = ExtResource("1_hibuy")
+uv1_scale = Vector3(0.25, 0.25, 0.25)
+uv1_triplanar = true
+uv1_world_triplanar = true
+uv2_triplanar = true
+uv2_world_triplanar = true
