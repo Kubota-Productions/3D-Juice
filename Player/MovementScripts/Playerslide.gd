@@ -15,35 +15,16 @@ extends PlayerMovementModule
 @export var slope_acceleration: float = 14.0
 @export var slope_min_angle_deg: float = 8.0
 @export var slope_full_angle_deg: float = 35.0
-## While sliding, surfaces up to this steep still count as floor (the
-## CharacterBody3D default of 45 degrees is what used to drop the player off
-## steeper slopes). Never lowers the body's own floor_max_angle.
 @export_range(0.0, 89.0) var floor_max_angle_deg: float = 75.0
-## While sliding, how far the body will snap back down to the surface after
-## a frame of moving off it. At speed on a downhill the ground drops away
-## faster than the default snap (0.1) can follow, so the player went
-## airborne. Never lowers the body's own floor_snap_length.
 @export var floor_snap_length: float = 0.5
-## How long the slide survives while airborne (bumps, crests, small drops)
-## before it ends. Slide jumps stay available during this window.
 @export var air_grace: float = 0.3
-## Walking up a slope that's too steep to stand on (steeper than the body's
-## normal floor limit, up to floor_max_angle_deg) puts you in a slide
-## back down it.
 @export var from_steep_slopes: bool = true
 
 const JUMP_GRACE := 0.15
 const MIN_SPEED := 1.0
-## On surfaces steeper than the body's normal floor limit, the slide ends if
-## it is heading up them (dot with the downhill direction below this value).
 const STEEP_UPHILL_LIMIT := -0.2
-## How directly the player has to be pushing up a too-steep slope (dot of
-## the input with the uphill direction) before it counts as an attempt to climb it.
 const STEEP_SLOPE_PUSH_THRESHOLD := 0.3
-## Probing the real surface under a contact (see get_slope_surface_normal):
-## how far each ray reaches either side of the surface, how far up the slope
-## the second sample is taken, and how closely the two face normals have to
-## agree (dot product) to count as one slope.
+const STEEP_SLOPE_CLEARANCE := 0.25
 const SLOPE_PROBE_DEPTH := 0.1
 const SLOPE_PROBE_SPACING := 0.15
 const SLOPE_PROBE_MATCH := 0.95
@@ -213,9 +194,6 @@ func get_slope_surface_normal(collision: KinematicCollision3D) -> Vector3:
 	return face_normal
 
 
-## Attempting to walk up a slope too steep to stand on (steeper than the
-## body's normal floor limit, but within what the slide can grip) puts the
-## player into a slide back down it.
 func try_steep_slope_slide() -> void:
 	if not from_steep_slopes:
 		return
@@ -229,8 +207,12 @@ func try_steep_slope_slide() -> void:
 	if player.jump_phase == Player.JumpPhase.RISING:
 		return
 
+	# Standing on ordinary floor, the player has to push up into the slope
+	# to start the slide. If they're airborne (jumped or dropped onto it, or
+	# skidding down it because it doesn't count as floor), no input is needed.
 	var input_direction: Vector3 = player.get_input_direction()
-	if input_direction.length_squared() < 0.0001:
+	var needs_push: bool = player.is_on_floor()
+	if needs_push and input_direction.length_squared() < 0.0001:
 		return
 
 	var steepest_walkable: float = default_floor_max_angle
@@ -244,8 +226,6 @@ func try_steep_slope_slide() -> void:
 		if contact_angle <= steepest_walkable or contact_angle > steepest_gripped:
 			continue
 
-		# Make sure it's an actual slope and not the edge of a flat ledge
-		# or step (see get_slope_surface_normal).
 		var normal: Vector3 = get_slope_surface_normal(collision)
 		if normal == Vector3.ZERO:
 			continue
@@ -254,8 +234,6 @@ func try_steep_slope_slide() -> void:
 		if angle <= steepest_walkable or angle > steepest_gripped:
 			continue
 
-		# The contact has to be down at the feet (walking into or standing on
-		# the slope), not the upper body brushing it mid-jump.
 		var contact_height: float = (collision.get_position() - player.global_position).dot(player.up_direction)
 		if contact_height > Player.NORMAL_COLLISION_HEIGHT * 0.5:
 			continue
@@ -265,8 +243,12 @@ func try_steep_slope_slide() -> void:
 			continue
 		downhill = downhill.normalized()
 
-		# Only when pushing up the slope, not along or away from it.
-		if input_direction.dot(downhill) > -STEEP_SLOPE_PUSH_THRESHOLD:
+		if needs_push and input_direction.dot(downhill) > -STEEP_SLOPE_PUSH_THRESHOLD:
+			continue
+
+		# Nowhere to slide to (wall at the bottom): don't start, or it
+		# would start and end every few frames.
+		if player.test_move(player.global_transform, downhill * STEEP_SLOPE_CLEARANCE):
 			continue
 
 		begin(downhill)

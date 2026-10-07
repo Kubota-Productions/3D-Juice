@@ -932,6 +932,16 @@ func play_wall_kick() -> void:
 		"WallKick"
 	)
 
+func play_launch() -> void:
+	if not animation_tree or not anim_playback:
+		return
+
+	current_anim_state = AnimState.JUMP
+	was_sliding = false
+	land_anim_active = false
+	landing_timer = 0.0
+
+	_travel_if_present("Jump")
 
 func force_idle() -> void:
 

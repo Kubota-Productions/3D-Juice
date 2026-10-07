@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="PlayerSlam" format=3 uid="uid://dvvea37f7jail"]
+
+[ext_resource type="Script" uid="uid://d148etxe4cvng" path="res://Player/MovementScripts/Playerslam.gd" id="1_7jb5o"]
+
+[resource]
+script = ExtResource("1_7jb5o")
+slam_speed = 40.0
+launch_height = 10.0
+metadata/_custom_type_script = "uid://d148etxe4cvng"

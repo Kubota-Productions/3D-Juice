@@ -160,22 +160,19 @@ var is_button_held: bool = false
 ## RISING:    the button is held and it's being raised.
 ## LOCKED:    released -- frozen exactly where it was.
 ## RETURNING: sinking back to its starting height.
-enum PlatformState { RESTING, RISING, LOCKED, RETURNING }
+enum PlatformState { RESTING, RISING, LOCKED, RETURNING, BOOSTED }
 
 class PlatformData:
 	var node: Node3D
 	var home_y: float = 0.0
 	var max_y: float = 0.0
 	var state: int = 0
-	## Current speed of whatever movement the platform is doing (rising
-	## or sinking). Reset to 0 on every state change.
 	var move_speed: float = 0.0
-	## Collision-shape bounds in the platform's own space. Used to
-	## measure how far the player is from the platform itself.
 	var local_bounds: AABB = AABB()
 	var sink_blocked: bool = false
 	var body: AnimatableBody3D = null
 	var settle_frames: int = 0
+	var boost_speed: float = 0.0
 	
 ## Every platform that has been touched, keyed by instance id.
 var platforms: Dictionary = {}
@@ -721,26 +718,62 @@ func _try_start_platform() -> bool:
 	_begin_raising(node)
 	return true
 
+func _ensure_platform_data(node: Node3D) -> PlatformData:
+	var data: PlatformData = _get_platform_data(node)
+	if data != null:
+		return data
+
+	data = PlatformData.new()
+	data.node = node
+	data.home_y = node.global_position.y
+
+	_setup_platform_physics(data)
+	data.local_bounds = _compute_local_bounds(node)
+
+	if debug_platforms:
+		print("TelekinesisController: platform '", node.name, "' bounds: ", data.local_bounds)
+
+	var max_rise: float = maxf(float(node.get_meta("tk_max_rise", platform_max_rise)), 0.0)
+	data.max_y = data.home_y + max_rise
+
+	platforms[node.get_instance_id()] = data
+	_disable_builtin_platform_carry(data.body)
+	return data
+## Called by PlayerSlam on landing. If the player slammed onto a tkplatform,
+## fires it upward (from whatever state it was in) and returns true.
+func slam_boost_platform(speed_multiplier: float) -> bool:
+	var node: Node3D = _get_platform_underfoot()
+	if node == null:
+		return false
+
+	var data: PlatformData = _ensure_platform_data(node)
+	data.boost_speed = platform_rise_speed * maxf(speed_multiplier, 0.0)
+	_set_platform_state(data, PlatformState.BOOSTED)
+	return true
+
+
+## Rises on its own at boost_speed (no button needed) until max height or
+## something blocks it, then locks like a normal raise.
+func _update_platform_boosted(data: PlatformData, underfoot: Node3D, delta: float) -> void:
+	data.move_speed = data.boost_speed
+
+	var step: float = data.move_speed * delta
+	var remaining: float = data.max_y - data.node.global_position.y
+
+	var hit_top: bool = step >= remaining
+	if hit_top:
+		step = maxf(remaining, 0.0)
+
+	var allowed: float = _allowed_platform_rise(data, step, underfoot == data.node)
+	var blocked: bool = allowed < step - 0.0001
+
+	_move_platform(data, allowed, underfoot)
+
+	if hit_top or blocked:
+		_set_platform_state(data, PlatformState.LOCKED)
 
 func _begin_raising(node: Node3D) -> void:
-	var data: PlatformData = _get_platform_data(node)
-
-	if data == null:
-		data = PlatformData.new()
-		data.node = node
-		data.home_y = node.global_position.y
-
-		_setup_platform_physics(data)
-		data.local_bounds = _compute_local_bounds(node)
-
-		if debug_platforms:
-			print("TelekinesisController: platform '", node.name, "' bounds: ", data.local_bounds)
-
-		var max_rise: float = maxf(float(node.get_meta("tk_max_rise", platform_max_rise)), 0.0)
-		data.max_y = data.home_y + max_rise
-
-		platforms[node.get_instance_id()] = data
-		_disable_builtin_platform_carry(data.body)
+	var data: PlatformData = _ensure_platform_data(node)
 
 	# Only one platform is ever being raised at a time.
 	if active_platform != null and active_platform != data:
@@ -749,13 +782,6 @@ func _begin_raising(node: Node3D) -> void:
 	_set_platform_state(data, PlatformState.RISING)
 	active_platform = data
 
-## Works out which node will be the physics body for a platform, and
-## builds whatever's missing. The tagged node can be:
-##   - a CSG shape, with or without an AnimatableBody3D child
-##   - an AnimatableBody3D (with a CSG child, or its own CollisionShape3D)
-## A box CollisionShape3D is generated from the CSG's size unless the
-## body already has a shape of its own. The CSG's built-in collision is
-## switched off in that case so there's only one collider.
 func _setup_platform_physics(data: PlatformData) -> void:
 	var root: Node3D = data.node
 
@@ -977,6 +1003,8 @@ func _update_platforms(delta: float) -> void:
 				_update_platform_locked(data, underfoot)
 			PlatformState.RETURNING:
 				_update_platform_returning(data, underfoot, delta)
+			PlatformState.BOOSTED:
+				_update_platform_boosted(data, underfoot, delta)
 
 
 func _update_platform_rising(data: PlatformData, underfoot: Node3D, delta: float) -> void:

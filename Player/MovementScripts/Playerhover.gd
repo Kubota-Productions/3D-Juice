@@ -97,6 +97,7 @@ func can_start() -> bool:
 		and not player.ledge.is_active()
 		and player.wall.state == PlayerWallMovement.WallState.NONE
 		and player.velocity.dot(player.up_direction) <= start_max_rise_speed
+		and not player.slam.is_active
 	)
 
 

@@ -77,7 +77,7 @@ func update(delta: float) -> void:
 			if player.dive.try_start_wall_climb():
 				return
 
-			if lockout_timer <= 0.0 and not player.dive.is_active and not try_start_run():
+			if lockout_timer <= 0.0 and not player.dive.is_active and not player.slam.is_active and not try_start_run():
 				try_start_slide()
 
 

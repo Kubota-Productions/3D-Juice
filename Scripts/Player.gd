@@ -16,8 +16,14 @@ const NORMAL_COLLISION_HEIGHT := 1.344
 const SLIDE_COLLISION_Y := 0.33
 const SLIDE_COLLISION_HEIGHT := 0.672
 
-## Full-height capsule used only to ask "would standing up here overlap
-## anything?" -- the real collider is the short one while sliding.
+var slam: PlayerSlam
+var has_slam := false
+
+var is_slamming: bool:
+	get:
+		return slam != null and slam.is_active
+enum JumpKind { NORMAL, SLIDE, WALL, CROUCH, SLAM }
+
 var _stand_check_shape: CapsuleShape3D
 
 ## How much upward speed move_and_slide() is allowed to add on its own
@@ -69,6 +75,7 @@ func hard_stop() -> void:
 	_set_jump_profile()
 	slide.cancel()
 	dive.cancel()
+	slam.cancel()
 	_end_crouch(false)
 	wall.end_wall_movement(false)
 	wall.lockout_timer = 0.0
@@ -187,6 +194,8 @@ func _setup_modules() -> void:
 			ledge = instance as PlayerLedgeGrab
 		elif instance is PlayerHover and hover == null:
 			hover = instance as PlayerHover
+		elif instance is PlayerSlam and slam == null:
+			slam = instance as PlayerSlam
 		else:
 			push_warning("Player: ignoring '%s' in movement_modules (unknown type, or a second one of the same type)." % module.resource_path)
 			continue
@@ -198,6 +207,8 @@ func _setup_modules() -> void:
 	has_wall = wall != null
 	has_ledge = ledge != null
 	has_hover = hover != null
+	has_slam = slam != null
+	
 
 	if slide == null:
 		slide = PlayerSlide.new()
@@ -217,6 +228,9 @@ func _setup_modules() -> void:
 	if ledge == null:
 		ledge = PlayerLedgeGrab.new()
 		live_modules.append(ledge)
+	if slam == null:
+		slam = PlayerSlam.new()
+		live_modules.append(slam)
 
 	for module in live_modules:
 		module.setup(self)
@@ -308,7 +322,6 @@ var _last_air_fall_speed: float = 0.0
 @export var max_jumps: int = 3
 
 enum JumpPhase { NONE, RISING, HANGING }
-enum JumpKind { NORMAL, SLIDE, WALL, CROUCH }
 
 var jump_phase: JumpPhase = JumpPhase.NONE
 var jump_phase_timer: float = 0.0
@@ -365,7 +378,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ToggleOTS"):
 		if is_ots_mode:
 			is_ots_mode = false
-		elif is_on_floor() and (not slide.is_active or can_stand_up()):
+		elif is_on_floor() and not slam.is_active and (not slide.is_active or can_stand_up()):
 			is_ots_mode = true
 
 	telekinesis_controller.handle_input(event)
@@ -399,6 +412,8 @@ func _physics_process(delta: float) -> void:
 	if not ledge.is_active():
 		if has_dive:
 			dive.update(delta)
+		if has_slam:
+			slam.update(delta)
 		if has_slide:
 			slide.update(delta)
 		_update_crouch(delta)
@@ -563,7 +578,12 @@ func _set_jump_profile(kind: JumpKind = JumpKind.NORMAL) -> void:
 			rise_t = crouch_jump_rise_time
 			fall_t = crouch_jump_fall_time
 			air_control = crouch_jump_air_control
-
+		JumpKind.SLAM:
+			height = slam.launch_height
+			rise_t = slam.launch_rise_time
+			fall_t = slam.launch_fall_time
+			air_control = slam.launch_air_control
+			
 	rise_t = maxf(rise_t, 0.01)
 	fall_t = maxf(fall_t, 0.01)
 
@@ -636,14 +656,12 @@ func _limit_unearned_rise(up_speed_before: float) -> void:
 
 
 func _handle_jump(_delta: float) -> void:
+	if slam.is_active:
+		return
 
 	if jump_buffer_timer <= 0.0:
 		return
 
-	# No headroom to stand up means no room to jump out of the crouch/slide
-	# either (the collider would grow inside the ceiling mid-air). The
-	# buffered press stays alive, so the jump still fires if they clear the
-	# cover in time.
 	if (slide.is_active or is_crouching) and not can_stand_up():
 		return
 
@@ -884,6 +902,9 @@ func _get_target_motion() -> Dictionary:
 	if slide.is_active:
 		return slide.get_target_motion()
 
+	if slam.is_active:
+		return slam.get_target_motion()
+	
 	if dive.is_active:
 		return dive.get_target_motion()
 
@@ -932,6 +953,8 @@ func _handle_movement(delta: float) -> void:
 	var max_accel: float
 	if slide.is_active:
 		max_accel = slide.acceleration
+	elif slam.is_active:
+		max_accel = slam.horizontal_deceleration
 	elif wall.is_wall_running or wall.is_wall_climbing:
 		max_accel = PlayerWallMovement.RUN_ACCELERATION
 	elif dive.is_active:

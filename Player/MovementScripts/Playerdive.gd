@@ -77,6 +77,7 @@ func can_start() -> bool:
 		and not player.movement_locked
 		and not player.is_ots_mode
 		and player.wall.state == PlayerWallMovement.WallState.NONE
+		and not player.slam.is_active
 	)
 
 

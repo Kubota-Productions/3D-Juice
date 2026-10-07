@@ -161,7 +161,7 @@ func try_grab() -> bool:
 	if player.is_on_floor() or player.movement_locked or player.is_ots_mode:
 		return false
 
-	if player.slide.is_active or player.dive.is_active:
+	if player.slide.is_active or player.dive.is_active or player.slam.is_active:
 		return false
 
 	if player.wall.state == PlayerWallMovement.WallState.RUNNING:
