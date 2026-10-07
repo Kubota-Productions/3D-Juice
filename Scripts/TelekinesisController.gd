@@ -115,15 +115,25 @@ var _bob_noise: FastNoiseLite = FastNoiseLite.new()
 @export var platform_max_rise: float = 8.0
 
 ## A locked platform starts sinking back to its starting height once
-## the player is farther than this from it (measured from the
-## platform's origin, so keep it larger than the platform itself and
-## larger than platform_reach). It never sinks while the player is
-## standing on it.
+## the player is farther than this from it. Distance is measured to the
+## nearest point of the platform's collision shapes (not its origin), so
+## big platforms behave the same as small ones. Keep it larger than
+## platform_reach. It never sinks while the player is standing on it.
 @export var platform_return_distance: float = 30.0
 
 ## Speed (units/sec) a platform sinks back to its starting height.
 @export var platform_return_speed: float = 2.0
 
+## Seconds a sinking platform takes to ramp up to platform_return_speed.
+@export var platform_return_ramp_time: float = 0.4
+
+## Prints platform state changes (RISING / LOCKED / RETURNING / RESTING)
+## to the Output panel. Handy for tracking down a platform that isn't
+## behaving.
+@export var debug_platforms: bool = false
+@export var platform_safe_margin: float = 0.02
+
+const MAX_PLATFORM_IGNORES := 8
 
 # ============================================================
 # HELD OBJECT DATA
@@ -157,8 +167,14 @@ class PlatformData:
 	var home_y: float = 0.0
 	var max_y: float = 0.0
 	var state: int = 0
-	var rise_velocity: float = 0.0
-
+	## Current speed of whatever movement the platform is doing (rising
+	## or sinking). Reset to 0 on every state change.
+	var move_speed: float = 0.0
+	## Collision-shape bounds in the platform's own space. Used to
+	## measure how far the player is from the platform itself.
+	var local_bounds: AABB = AABB()
+	var sink_blocked: bool = false
+	
 ## Every platform that has been touched, keyed by instance id.
 var platforms: Dictionary = {}
 
@@ -186,8 +202,8 @@ func handle_input(event: InputEvent) -> void:
 		if _try_grab():
 			return
 
-		# Looking at a tkplatform (or standing on one) -- raise it
-		# instead of launching.
+		# Looking at a tkplatform (or standing on one) -- raise it, or
+		# unlock it if it's locked, instead of launching.
 		if _try_start_platform():
 			return
 
@@ -671,44 +687,62 @@ func _release_power(data: HeldObjectData) -> void:
 # ============================================================
 # PLATFORMS
 # ============================================================
-## Called on a Telekinesis press that didn't grab anything. Raises the
-## platform under the reticle, or failing that the one the player is
-## standing on. Returns true if a platform was picked.
+## Called on a Telekinesis press that didn't grab anything. Picks the
+## platform under the reticle (or, failing that, the one the player is
+## standing on) and acts on its current state:
+##   LOCKED    -> unlock it; it sinks back to its starting height.
+##   otherwise -> start raising it from wherever it currently is.
+## Returns true if a platform took the press.
 func _try_start_platform() -> bool:
 	var node: Node3D = _find_platform_under_reticle()
 
 	# Not aiming at one: fall back to the platform underfoot -- but only
-	# when there's no held object waiting to be launched, so this
-	# shortcut can never steal a launch.
+	# when there's no held object waiting to be launched, and never to
+	# unlock a locked platform the player merely happens to be standing on.
 	if node == null and not _has_confirmed_objects():
-		node = _get_platform_underfoot()
+		var underfoot: Node3D = _get_platform_underfoot()
+		var underfoot_data: PlatformData = _get_platform_data(underfoot)
+
+		if underfoot != null and (underfoot_data == null or underfoot_data.state != PlatformState.LOCKED):
+			node = underfoot
 
 	if node == null:
 		return false
+
+	var data: PlatformData = _get_platform_data(node)
+
+	# Using Telekinesis on a locked platform lets go of it.
+	if data != null and data.state == PlatformState.LOCKED:
+		_set_platform_state(data, PlatformState.RETURNING)
+		return true
 
 	_begin_raising(node)
 	return true
 
 
 func _begin_raising(node: Node3D) -> void:
-	var id: int = node.get_instance_id()
-	var data: PlatformData = platforms.get(id)
+	var data: PlatformData = _get_platform_data(node)
 
 	if data == null:
 		data = PlatformData.new()
 		data.node = node
 		data.home_y = node.global_position.y
+		data.local_bounds = _compute_local_bounds(node)
+		if debug_platforms:
+			print("TelekinesisController: platform '", node.name, "' bounds: ", data.local_bounds)
 
 		var max_rise: float = maxf(float(node.get_meta("tk_max_rise", platform_max_rise)), 0.0)
 		data.max_y = data.home_y + max_rise
 
-		platforms[id] = data
+		platforms[node.get_instance_id()] = data
 		_warn_if_not_animatable(node)
+		_disable_builtin_platform_carry(node)
 
-	# Works from wherever it currently is -- a locked or returning
-	# platform just carries on rising from its present height.
-	data.state = PlatformState.RISING
-	data.rise_velocity = 0.0
+	# Only one platform is ever being raised at a time.
+	if active_platform != null and active_platform != data:
+		_set_platform_state(active_platform, PlatformState.LOCKED)
+
+	_set_platform_state(data, PlatformState.RISING)
 	active_platform = data
 
 
@@ -717,24 +751,102 @@ func _release_platform() -> void:
 	if active_platform == null:
 		return
 
-	_lock_platform(active_platform)
+	_set_platform_state(active_platform, PlatformState.LOCKED)
 
+## How far the platform can drop before it would touch the top of the
+## player's head. Returns INF when the player isn't underneath it (not
+## overlapping it horizontally, or already level with / above its
+## underside, e.g. standing on it).
+## How far the platform can drop before it would touch the top of the
+## player's head. Fires rays straight up from the player's body and
+## finds this platform's real underside, so it doesn't depend on any
+## precomputed bounds. Returns INF when the platform isn't above them.
+func _drop_clearance_above_player(data: PlatformData) -> float:
+	if not player:
+		return INF
 
-func _lock_platform(data: PlatformData) -> void:
-	data.state = PlatformState.LOCKED
-	data.rise_velocity = 0.0
+	var shape_node := player.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if shape_node == null:
+		return INF
 
-	if active_platform == data:
+	var capsule := shape_node.shape as CapsuleShape3D
+	if capsule == null:
+		return INF
+
+	var center: Vector3 = shape_node.global_position
+	var head_y: float = center.y + capsule.height * 0.5
+	var ring: float = capsule.radius * 0.9
+	var reach: float = maxf(data.node.global_position.y - center.y, 0.0) + 5.0
+	var space: PhysicsDirectSpaceState3D = player.get_world_3d().direct_space_state
+
+	# One ray up the middle plus a ring around the capsule's width.
+	var offsets: Array[Vector3] = [Vector3.ZERO]
+	for i in range(8):
+		var angle: float = TAU * float(i) / 8.0
+		offsets.append(Vector3(cos(angle), 0.0, sin(angle)) * ring)
+
+	var clearance: float = INF
+
+	for offset in offsets:
+		var from: Vector3 = center + offset
+		var to: Vector3 = from + Vector3.UP * reach
+		var exclude: Array[RID] = [player.get_rid()]
+
+		# Look past anything that isn't this platform (props, NPCs).
+		for attempt in range(4):
+			var query := PhysicsRayQueryParameters3D.create(from, to)
+			query.exclude = exclude
+
+			var hit: Dictionary = space.intersect_ray(query)
+			if hit.is_empty():
+				break
+
+			if _platform_from_collider(hit["collider"]) == data.node:
+				var hit_position: Vector3 = hit["position"]
+				clearance = minf(clearance, maxf(hit_position.y - head_y, 0.0))
+				break
+
+			exclude.append(hit["rid"])
+
+	if is_inf(clearance):
+		return INF
+
+	return maxf(clearance - platform_safe_margin, 0.0)
+
+## Every state change goes through here so the bookkeeping can't drift.
+func _set_platform_state(data: PlatformData, new_state: int) -> void:
+	if data.state == new_state:
+		return
+
+	if debug_platforms:
+		print(
+			"TelekinesisController: platform '", data.node.name, "' ",
+			PlatformState.keys()[data.state], " -> ", PlatformState.keys()[new_state]
+		)
+
+	data.state = new_state
+	data.move_speed = 0.0
+
+	# A platform that isn't rising can't be the one being held.
+	if new_state != PlatformState.RISING and active_platform == data:
 		active_platform = null
+
+
+func _get_platform_data(node: Node3D) -> PlatformData:
+	if node == null:
+		return null
+
+	return platforms.get(node.get_instance_id())
 
 
 func _update_platforms(delta: float) -> void:
 	if platforms.is_empty():
 		return
 
-	# Safety net: if the button somehow isn't held any more, nothing
-	# should still be rising.
-	if active_platform != null and not is_button_held:
+	# Release is checked against the live input state as well as the
+	# event-driven flag, so a release event that never arrives (focus
+	# loss, another node eating it) can't leave a platform rising.
+	if active_platform != null and (not is_button_held or not Input.is_action_pressed("Telekinesis")):
 		_release_platform()
 
 	var underfoot: Node3D = _get_platform_underfoot()
@@ -751,27 +863,35 @@ func _update_platforms(delta: float) -> void:
 
 		match data.state:
 			PlatformState.RISING:
-				_update_platform_rising(data, delta)
+				if data == active_platform:
+					_update_platform_rising(data, underfoot, delta)
+				else:
+					_set_platform_state(data, PlatformState.LOCKED)
 			PlatformState.LOCKED:
 				_update_platform_locked(data, underfoot)
 			PlatformState.RETURNING:
-				_update_platform_returning(data, delta)
+				_update_platform_returning(data, underfoot, delta)
 
 
-func _update_platform_rising(data: PlatformData, delta: float) -> void:
-	# Ease up to full speed rather than starting at it.
+func _update_platform_rising(data: PlatformData, underfoot: Node3D, delta: float) -> void:
 	var accel: float = platform_rise_speed / maxf(platform_rise_ramp_time, 0.001)
-	data.rise_velocity = move_toward(data.rise_velocity, platform_rise_speed, accel * delta)
+	data.move_speed = move_toward(data.move_speed, platform_rise_speed, accel * delta)
 
-	var new_y: float = data.node.global_position.y + data.rise_velocity * delta
+	var step: float = data.move_speed * delta
+	var remaining: float = data.max_y - data.node.global_position.y
 
-	# Hit the top: stop there and lock.
-	if new_y >= data.max_y:
-		_set_platform_y(data.node, data.max_y)
-		_lock_platform(data)
-		return
+	var hit_top: bool = step >= remaining
+	if hit_top:
+		step = maxf(remaining, 0.0)
 
-	_set_platform_y(data.node, new_y)
+	var allowed: float = _allowed_platform_rise(data, step, underfoot == data.node)
+	var blocked: bool = allowed < step - 0.0001
+
+	_move_platform(data, allowed, underfoot)
+
+	# Max height or a ceiling/collider: stop and lock right there.
+	if hit_top or blocked:
+		_set_platform_state(data, PlatformState.LOCKED)
 
 
 func _update_platform_locked(data: PlatformData, underfoot: Node3D) -> void:
@@ -779,23 +899,35 @@ func _update_platform_locked(data: PlatformData, underfoot: Node3D) -> void:
 	if underfoot == data.node:
 		return
 
-	var distance: float = player.global_position.distance_to(data.node.global_position)
+	if _distance_to_platform(data) > platform_return_distance:
+		_set_platform_state(data, PlatformState.RETURNING)
 
-	if distance > platform_return_distance:
-		data.state = PlatformState.RETURNING
+func _update_platform_returning(data: PlatformData, underfoot: Node3D, delta: float) -> void:
+	var accel: float = platform_return_speed / maxf(platform_return_ramp_time, 0.001)
+	data.move_speed = move_toward(data.move_speed, platform_return_speed, accel * delta)
 
+	var current_y: float = data.node.global_position.y
+	var target_y: float = move_toward(current_y, data.home_y, data.move_speed * delta)
+	var dy: float = target_y - current_y
 
-func _update_platform_returning(data: PlatformData, delta: float) -> void:
-	var new_y: float = move_toward(
-		data.node.global_position.y,
-		data.home_y,
-		platform_return_speed * delta
-	)
+	if dy < 0.0:
+		var wanted: float = dy
 
-	_set_platform_y(data.node, new_y)
+		dy = maxf(dy, -_drop_clearance_above_player(data))
+		dy *= _sweep_shapes(_platform_shapes(data), Vector3(0.0, dy, 0.0), [], true, true)
+		var blocked: bool = dy > wanted + 0.0001
 
-	if is_equal_approx(new_y, data.home_y):
-		data.state = PlatformState.RESTING
+		if debug_platforms and blocked != data.sink_blocked:
+			print(
+				"TelekinesisController: platform '", data.node.name, "' sinking ",
+				"BLOCKED" if blocked else "clear"
+			)
+		data.sink_blocked = blocked
+
+	_move_platform(data, dy, underfoot)
+
+	if is_equal_approx(data.node.global_position.y, data.home_y):
+		_set_platform_state(data, PlatformState.RESTING)
 
 
 ## Platforms only ever move on the world Y axis.
@@ -803,6 +935,260 @@ func _set_platform_y(node: Node3D, y: float) -> void:
 	var p: Vector3 = node.global_position
 	p.y = y
 	node.global_position = p
+
+## Moves the platform by dy and, if the player is standing on it, moves
+## the player by exactly the same amount. Doing it here, in the same
+## frame, avoids the lag/jitter of waiting for move_and_slide() to pick
+## up the platform's velocity.
+func _move_platform(data: PlatformData, dy: float, underfoot: Node3D) -> void:
+	if is_zero_approx(dy):
+		return
+
+	_set_platform_y(data.node, data.node.global_position.y + dy)
+
+	if underfoot == data.node and player:
+		player.global_position += Vector3(0.0, dy, 0.0)
+
+
+## How far (0..step) the platform can rise this frame. Sweeps the
+## platform's collision shapes against the world, and also the rider's
+## capsule so a ceiling can't squash them into the platform.
+func _allowed_platform_rise(data: PlatformData, step: float, has_rider: bool) -> float:
+	if step <= 0.0:
+		return 0.0
+
+	var platform_shapes: Array[CollisionShape3D] = _platform_shapes(data)
+	var allowed: float = step * _sweep_shapes(
+		platform_shapes, Vector3(0.0, step, 0.0), [], true, true
+	)
+
+	if has_rider and allowed > 0.0:
+		var rider_shape := player.get_node_or_null("CollisionShape3D") as CollisionShape3D
+
+		if rider_shape:
+			var rider_shapes: Array[CollisionShape3D] = [rider_shape]
+
+			# The platform under their feet must not count as a blocker.
+			var platform_rids: Array[RID] = []
+			for shape_node in platform_shapes:
+				var body := shape_node.get_parent() as CollisionObject3D
+				if body:
+					platform_rids.append(body.get_rid())
+
+			allowed *= _sweep_shapes(
+				rider_shapes, Vector3(0.0, allowed, 0.0), platform_rids, true, true
+			)
+
+	return allowed
+
+func _platform_shapes(data: PlatformData) -> Array[CollisionShape3D]:
+	var shapes: Array[CollisionShape3D] = []
+	_collect_collision_shapes(data.node, shapes)
+	return shapes
+
+
+## Sweeps each shape along `motion` and returns the fraction (0..1) of the
+## motion that's free of obstacles. Uses the shape's owning body for the
+## collision mask and excludes that body from the query. Characters and/or
+## rigid bodies can be ignored (props and NPCs resting on the platform);
+## they're identified at the contact point and excluded before retrying.
+func _sweep_shapes(
+	shape_nodes: Array[CollisionShape3D],
+	motion: Vector3,
+	extra_exclude: Array[RID] = [],
+	ignore_characters: bool = false,
+	ignore_rigid_bodies: bool = false
+) -> float:
+	if motion.is_zero_approx() or not player:
+		return 1.0
+
+	var space: PhysicsDirectSpaceState3D = player.get_world_3d().direct_space_state
+	var best: float = 1.0
+
+	for shape_node in shape_nodes:
+		if shape_node.disabled or shape_node.shape == null:
+			continue
+
+		# Concave (trimesh) shapes can't be swept through the world.
+		if shape_node.shape is ConcavePolygonShape3D:
+			continue
+
+		var excluded: Array[RID] = extra_exclude.duplicate()
+		var mask: int = 0xFFFFFFFF
+
+		var owner_body := shape_node.get_parent() as CollisionObject3D
+		if owner_body:
+			excluded.append(owner_body.get_rid())
+			mask = owner_body.collision_mask
+
+		var resolved: bool = false
+
+		for attempt in range(MAX_PLATFORM_IGNORES + 1):
+			var query := PhysicsShapeQueryParameters3D.new()
+			query.shape = shape_node.shape
+			query.transform = shape_node.global_transform
+			query.motion = motion
+			query.collision_mask = mask
+			query.exclude = excluded
+
+			var fractions: PackedFloat32Array = space.cast_motion(query)
+
+			# Nothing in the way.
+			if fractions.size() < 2 or fractions[0] >= 1.0:
+				resolved = true
+				break
+
+			var safe: float = fractions[0]
+			var unsafe: float = fractions[1]
+
+			# Who is at the point of contact?
+			var probe := PhysicsShapeQueryParameters3D.new()
+			probe.shape = shape_node.shape
+			probe.transform = Transform3D(
+				query.transform.basis,
+				query.transform.origin + motion * unsafe
+			)
+			probe.collision_mask = mask
+			probe.exclude = excluded
+			probe.margin = platform_safe_margin
+
+			var overlaps: Array[Dictionary] = space.intersect_shape(probe, 8)
+			var blocking: bool = overlaps.is_empty()
+			var to_ignore: Array[RID] = []
+
+			for overlap in overlaps:
+				var collider: Object = overlap["collider"]
+				var ignorable: bool = (
+					(ignore_characters and collider is CharacterBody3D)
+					or (ignore_rigid_bodies and collider is RigidBody3D)
+				)
+
+				if ignorable:
+					to_ignore.append(overlap["rid"])
+				else:
+					blocking = true
+
+			if blocking:
+				best = minf(best, safe)
+				resolved = true
+				break
+
+			excluded.append_array(to_ignore)
+
+		# Ran out of retries (a pile of props): be conservative.
+		if not resolved:
+			best = 0.0
+
+		if best <= 0.0:
+			return 0.0
+
+	return best
+
+## Wraps PhysicsBody3D.test_move(). Returns the part of `motion` the body
+## can travel before hitting something. Characters and/or rigid bodies can
+## be ignored (the player and NPCs standing on a platform, crates on it,
+## etc.); they're added as temporary collision exceptions and removed again.
+func _allowed_motion(
+	body: PhysicsBody3D,
+	motion: Vector3,
+	ignore_characters: bool,
+	ignore_rigid_bodies: bool
+) -> Vector3:
+	if body == null or motion.is_zero_approx():
+		return motion
+
+	# The platform's own mask may not include the player's layer, which
+	# would make the player invisible to test_move(). Always include it
+	# (and restore the mask afterwards).
+	var original_mask: int = body.collision_mask
+	if player and body != player:
+		body.collision_mask |= player.collision_layer
+
+	var ignored: Array[PhysicsBody3D] = []
+	var result := Vector3.ZERO
+
+	for i in range(MAX_PLATFORM_IGNORES + 1):
+		var collision := KinematicCollision3D.new()
+
+		if not body.test_move(body.global_transform, motion, collision, platform_safe_margin):
+			result = motion
+			break
+
+		var collider := collision.get_collider() as PhysicsBody3D
+		var skip: bool = collider != null and (
+			(ignore_characters and collider is CharacterBody3D)
+			or (ignore_rigid_bodies and collider is RigidBody3D)
+		)
+
+		if not skip:
+			result = collision.get_travel()
+			break
+
+		body.add_collision_exception_with(collider)
+		ignored.append(collider)
+
+	for other in ignored:
+		if is_instance_valid(other):
+			body.remove_collision_exception_with(other)
+
+	body.collision_mask = original_mask
+
+	# Never move backwards or further than asked.
+	if result.dot(motion) <= 0.0:
+		return Vector3.ZERO
+
+	return result.limit_length(motion.length())
+
+
+## The controller now carries the player itself (see _move_platform).
+## Without this, CharacterBody3D's built-in platform following would
+## carry them a second time. Only affects this platform's collision layer.
+func _disable_builtin_platform_carry(node: Node3D) -> void:
+	var collision_object := node as CollisionObject3D
+
+	if collision_object and player:
+		player.platform_floor_layers &= ~collision_object.collision_layer
+
+## Distance from the player to the nearest point of the platform's
+## collision bounds (0 if the player is inside them).
+func _distance_to_platform(data: PlatformData) -> float:
+	var world_box: AABB = (data.node.global_transform * data.local_bounds).abs()
+	var p: Vector3 = player.global_position
+	var closest: Vector3 = p.clamp(world_box.position, world_box.end)
+	return p.distance_to(closest)
+
+
+## Bounding box of every CollisionShape3D under the platform, in the
+## platform's own space. Falls back to a point at its origin if it has none.
+func _compute_local_bounds(root: Node3D) -> AABB:
+	var shapes: Array[CollisionShape3D] = []
+	_collect_collision_shapes(root, shapes)
+
+	var to_local: Transform3D = root.global_transform.affine_inverse()
+	var bounds := AABB()
+	var has_bounds: bool = false
+
+	for shape_node in shapes:
+		if shape_node.shape == null:
+			continue
+
+		var shape_box: AABB = to_local * shape_node.global_transform * shape_node.shape.get_debug_mesh().get_aabb()
+
+		if has_bounds:
+			bounds = bounds.merge(shape_box)
+		else:
+			bounds = shape_box
+			has_bounds = true
+
+	return bounds
+
+
+func _collect_collision_shapes(node: Node, out: Array[CollisionShape3D]) -> void:
+	for child in node.get_children():
+		if child is CollisionShape3D:
+			out.append(child)
+
+		_collect_collision_shapes(child, out)
 
 
 ## Camera ray against the world. Held telekinesis objects are skipped so
