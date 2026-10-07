@@ -568,9 +568,10 @@ func _set_jump_profile(kind: JumpKind = JumpKind.NORMAL) -> void:
 			fall_t = crouch_jump_fall_time
 			air_control = crouch_jump_air_control
 		JumpKind.SLAM:
-			height = slam.launch_height
-			rise_t = slam.launch_rise_time
-			fall_t = slam.launch_fall_time
+			var profile: Dictionary = slam.get_launch_profile()
+			height = profile["height"]
+			rise_t = profile["rise_time"]
+			fall_t = profile["fall_time"]
 			air_control = slam.launch_air_control
 			
 	rise_t = maxf(rise_t, 0.01)

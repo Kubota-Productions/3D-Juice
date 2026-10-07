@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://fke3elxona2a"]
+
+[ext_resource type="Script" uid="uid://qapevmtpy1nw" path="res://Scripts/GravityPickup.gd" id="1_tadse"]
+[ext_resource type="PackedScene" uid="uid://bjmdh45cbqnxr" path="res://Assets/Bottle.glb" id="2_8750h"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_g4v7s"]
+
+[node name="Gravitypickup" type="Node3D" unique_id=332084249]
+
+[node name="Area3D" type="Area3D" parent="." unique_id=795806627]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+script = ExtResource("1_tadse")
+refill_amount = 1000.0
+float_height = 0.1
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D" unique_id=880565840]
+shape = SubResource("BoxShape3D_g4v7s")
+
+[node name="Bottle" parent="Area3D/CollisionShape3D" unique_id=2012481267 instance=ExtResource("2_8750h")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15810212, 0)
+
+[node name="OmniLight3D" type="OmniLight3D" parent="Area3D/CollisionShape3D" unique_id=1403601694]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02758585, 0)
+light_color = Color(0.9997626, 0.083894156, 0.11764512, 1)
+light_energy = 9.204
+light_specular = 4.33
+light_bake_mode = 1
+omni_range = 0.20540516

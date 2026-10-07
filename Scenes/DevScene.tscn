@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://cfahswakqqjl0" path="res://Assets/spoon.tscn" id="4_hfium"]
 [ext_resource type="Script" uid="uid://cakk7yc4dx3i1" path="res://Scenes/DeathZone.gd" id="4_v4yyn"]
 [ext_resource type="PackedScene" uid="uid://buojk8mfigyck" path="res://Player/3DJuicePC.glb" id="5_yiqus"]
+[ext_resource type="PackedScene" uid="uid://fke3elxona2a" path="res://Assets/Gravitypickup.tscn" id="9_ryche"]
 
 [sub_resource type="Environment" id="Environment_v2ubv"]
 background_energy_multiplier = 2.49
@@ -15,9 +16,247 @@ ssao_enabled = true
 ssao_radius = 10.5
 ssao_intensity = 2.31
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_v4yyn"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_qtj1u"]
 render_priority = 0
 shader = ExtResource("3_dyom7")
+shader_parameter/WATER_COL = Color(0.5520111, 0, 0.036678374, 1)
+shader_parameter/WATER2_COL = Color(0.94653565, 0.40609315, 0, 1)
+shader_parameter/FOAM_COL = Color(0.9250256, 0.8560231, 7.70092e-07, 1)
+shader_parameter/distortion_speed = 0.33
+shader_parameter/tile = Vector2(25, 25)
+shader_parameter/height = 2.0
+shader_parameter/wave_size = Vector2(2, 2)
+shader_parameter/wave_speed = 1.5
+shader_parameter/foam_distance = 0.15
+shader_parameter/foam_strength = 1.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_v4yyn"]
+material = SubResource("ShaderMaterial_qtj1u")
+size = Vector2(20, 25)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_yf5fn"]
+size = Vector3(146, 1, 33)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ryche"]
+render_priority = 0
+shader = ExtResource("3_dyom7")
+shader_parameter/WATER_COL = Color(0.5520111, 0, 0.036678374, 1)
+shader_parameter/WATER2_COL = Color(0.94653565, 0.40609315, 0, 1)
+shader_parameter/FOAM_COL = Color(0.9250256, 0.8560231, 7.70092e-07, 1)
+shader_parameter/distortion_speed = 0.33
+shader_parameter/tile = Vector2(200, 40)
+shader_parameter/height = 2.0
+shader_parameter/wave_size = Vector2(2, 2)
+shader_parameter/wave_speed = 1.5
+shader_parameter/foam_distance = 0.15
+shader_parameter/foam_strength = 1.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_qtj1u"]
+material = SubResource("ShaderMaterial_ryche")
+size = Vector2(200, 40)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_k2iba"]
+render_priority = 0
+shader = ExtResource("3_dyom7")
+shader_parameter/WATER_COL = Color(0.5520111, 0, 0.036678374, 1)
+shader_parameter/WATER2_COL = Color(0.94653565, 0.40609315, 0, 1)
+shader_parameter/FOAM_COL = Color(0.9250256, 0.8560231, 7.70092e-07, 1)
+shader_parameter/distortion_speed = 0.33
+shader_parameter/tile = Vector2(20, 10)
+shader_parameter/height = 2.0
+shader_parameter/wave_size = Vector2(2, 2)
+shader_parameter/wave_speed = 1.5
+shader_parameter/foam_distance = 0.15
+shader_parameter/foam_strength = 1.0
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_g4v7s"]
+material = SubResource("ShaderMaterial_k2iba")
+size = Vector2(20, 10)
+
+[sub_resource type="Shader" id="Shader_ryche"]
+code = "shader_type spatial;
+render_mode cull_back,depth_draw_opaque;
+
+uniform vec4 WATER_COL:source_color=vec4(0.04,0.38,0.88,1.0);
+uniform vec4 WATER2_COL:source_color=vec4(0.04,0.35,0.78,1.0);
+uniform vec4 FOAM_COL:source_color=vec4(0.8125,0.9609,0.9648,1.0);
+
+uniform float distortion_speed=2.0;
+uniform vec2 tile=vec2(5.0);
+uniform float height=2.0;
+uniform vec2 wave_size=vec2(2.0);
+uniform float wave_speed=1.5;
+
+uniform sampler2D depth_texture:hint_depth_texture;
+uniform float foam_distance=0.15;
+uniform float foam_strength=1.0;
+
+const float M_2PI=6.283185307;
+const float M_6PI=18.84955592;
+const float PERIOD=8.0;
+
+float random(vec2 uv){
+	return fract(sin(dot(uv,vec2(12.9898,78.233)))*43758.5453123);
+}
+
+float noise_periodic(vec2 uv,float period){
+	vec2 i=floor(uv);
+	vec2 f=fract(uv);
+	vec2 i00=mod(i,period);
+	vec2 i10=mod(i+vec2(1,0),period);
+	vec2 i01=mod(i+vec2(0,1),period);
+	vec2 i11=mod(i+vec2(1,1),period);
+	float a=random(i00);
+	float b=random(i10);
+	float c=random(i01);
+	float d=random(i11);
+	vec2 u=f*f*(3.0-2.0*f);
+	return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
+}
+
+float fbm(vec2 uv){
+	float value=0.0;
+	float amp=0.5;
+	float freq=1.0;
+	for(int i=0;i<5;i++){
+		value+=amp*noise_periodic(uv*freq,PERIOD*freq);
+		amp*=0.5;
+		freq*=2.0;
+	}
+	return value;
+}
+
+float circ(vec2 pos,vec2 c,float s){
+	c=abs(pos-c);
+	c=min(c,1.0-c);
+	return smoothstep(0.0,0.002,sqrt(s)-sqrt(dot(c,c)))*-1.0;
+}
+
+float waterlayer(vec2 uv){
+	uv=mod(uv,1.0);
+	float ret=1.0;
+	ret+=circ(uv,vec2(0.37378,0.277169),0.0268181);
+	ret+=circ(uv,vec2(0.0317477,0.540372),0.0193742);
+	ret+=circ(uv,vec2(0.430044,0.882218),0.0232337);
+	ret+=circ(uv,vec2(0.641033,0.695106),0.0117864);
+	ret+=circ(uv,vec2(0.0146398,0.0791346),0.0299458);
+	ret+=circ(uv,vec2(0.43871,0.394445),0.0289087);
+	ret+=circ(uv,vec2(0.909446,0.878141),0.028466);
+	ret+=circ(uv,vec2(0.310149,0.686637),0.0128496);
+	ret+=circ(uv,vec2(0.928617,0.195986),0.0152041);
+	ret+=circ(uv,vec2(0.0438506,0.868153),0.0268601);
+	ret+=circ(uv,vec2(0.308619,0.194937),0.00806102);
+	ret+=circ(uv,vec2(0.349922,0.449714),0.00928667);
+	ret+=circ(uv,vec2(0.0449556,0.953415),0.023126);
+	ret+=circ(uv,vec2(0.117761,0.503309),0.0151272);
+	ret+=circ(uv,vec2(0.563517,0.244991),0.0292322);
+	ret+=circ(uv,vec2(0.566936,0.954457),0.00981141);
+	ret+=circ(uv,vec2(0.0489944,0.200931),0.0178746);
+	ret+=circ(uv,vec2(0.569297,0.624893),0.0132408);
+	ret+=circ(uv,vec2(0.298347,0.710972),0.0114426);
+	ret+=circ(uv,vec2(0.878141,0.771279),0.00322719);
+	return max(ret,0.0);
+}
+
+vec3 water(vec2 uv,vec3 cdir,float iTime){
+	uv*=0.25;
+	uv+=fbm(uv*3.0)*0.2;
+
+	vec2 a=0.025*cdir.xz/cdir.y;
+
+	float h=sin(uv.x+iTime);
+	uv+=a*h;
+
+	h=sin(0.841471*uv.x-0.540302*uv.y+iTime);
+	uv+=a*h;
+
+	float d1=mod(uv.x+uv.y,M_2PI);
+	float d2=mod((uv.x+uv.y+0.25)*1.3,M_6PI);
+
+	d1=iTime*0.07+d1;
+	d2=iTime*0.5+d2;
+
+	vec2 dist=vec2(
+		sin(d1)*0.15+sin(d2)*0.05,
+		cos(d1)*0.15+cos(d2)*0.05
+	);
+
+	vec3 ret=mix(WATER_COL.rgb,WATER2_COL.rgb,waterlayer(uv+dist.xy));
+
+	float foam=waterlayer(vec2(1.0)-uv-dist.yx);
+	foam=clamp(foam-0.85,0.0,1.0)*6.0;
+	foam=clamp(foam,0.0,1.0);
+
+	ret=mix(ret,FOAM_COL.rgb,foam);
+
+	return ret;
+}
+
+void vertex(){
+	float time=TIME*wave_speed;
+	vec2 uv=UV*wave_size;
+
+	float d1=mod(uv.x+uv.y,M_2PI);
+	float d2=mod((uv.x+uv.y+0.25)*1.3,M_6PI);
+
+	d1=time*0.07+d1;
+	d2=time*0.5+d2;
+
+	vec2 dist=vec2(
+		sin(d1)*0.15+sin(d2)*0.05,
+		cos(d1)*0.15+cos(d2)*0.05
+	);
+
+	VERTEX.y+=dist.y*height;
+}
+
+void fragment(){
+	vec2 uv=UV*tile;
+
+	vec3 col=water(
+		uv,
+		vec3(0.0,1.0,0.0),
+		TIME*distortion_speed
+	);
+
+
+	float depth=texture(depth_texture,SCREEN_UV).r;
+	vec3 ndc;
+
+	#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+		ndc=vec3(SCREEN_UV*2.0-1.0,depth*2.0-1.0);
+	#else
+		ndc=vec3(SCREEN_UV*2.0-1.0,depth);
+	#endif
+
+	vec4 world=INV_VIEW_MATRIX*INV_PROJECTION_MATRIX*vec4(ndc,1.0);
+	vec3 object_world_position=world.xyz/world.w;
+
+	float water_y=(INV_VIEW_MATRIX*vec4(VERTEX,1.0)).y;
+
+	float depth_difference=abs(object_world_position.y-water_y);
+
+
+	float depth_foam=step(depth_difference,foam_distance);
+
+	depth_foam*=step(0.001,depth_difference);
+
+	col=mix(
+		col,
+		FOAM_COL.rgb,
+		depth_foam*foam_strength
+	);
+
+
+	ALBEDO=col;
+	ROUGHNESS=0.05;
+	METALLIC=0.0;
+	ALPHA=1.0;
+}"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_v4yyn"]
+render_priority = 0
+shader = SubResource("Shader_ryche")
 shader_parameter/WATER_COL = Color(0.5520111, 0, 0.036678374, 1)
 shader_parameter/WATER2_COL = Color(0.94653565, 0.40609315, 0, 1)
 shader_parameter/FOAM_COL = Color(0.9250256, 0.8560231, 7.70092e-07, 1)
@@ -29,12 +268,9 @@ shader_parameter/wave_speed = 1.5
 shader_parameter/foam_distance = 0.15
 shader_parameter/foam_strength = 1.0
 
-[sub_resource type="PlaneMesh" id="PlaneMesh_g4v7s"]
+[sub_resource type="PlaneMesh" id="PlaneMesh_k2iba"]
 material = SubResource("ShaderMaterial_v4yyn")
 size = Vector2(20, 40)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_yf5fn"]
-size = Vector3(17, 1, 43)
 
 [node name="Node3D" type="Node3D" unique_id=1767665750]
 
@@ -69,13 +305,24 @@ size = Vector3(26, 15, 11)
 
 [node name="Deathzone" type="MeshInstance3D" parent="ENV" unique_id=1416684410]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16.212637, -0.71532965, -23.519564)
-mesh = SubResource("PlaneMesh_g4v7s")
+mesh = SubResource("PlaneMesh_v4yyn")
 
 [node name="Area3D" type="Area3D" parent="ENV/Deathzone" unique_id=809630395]
 script = ExtResource("4_v4yyn")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/Deathzone/Area3D" unique_id=926555969]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.9073486e-06)
+shape = SubResource("BoxShape3D_yf5fn")
+
+[node name="Deathzone4" type="MeshInstance3D" parent="ENV" unique_id=828385930]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -158.21263, -24.71533, -87.51956)
+mesh = SubResource("PlaneMesh_qtj1u")
+
+[node name="Area3D" type="Area3D" parent="ENV/Deathzone4" unique_id=205095945]
+script = ExtResource("4_v4yyn")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/Deathzone4/Area3D" unique_id=40138676]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6.5, 0, 0)
 shape = SubResource("BoxShape3D_yf5fn")
 
 [node name="Deathzone2" type="MeshInstance3D" parent="ENV" unique_id=1688368450]
@@ -91,7 +338,7 @@ shape = SubResource("BoxShape3D_yf5fn")
 
 [node name="Deathzone3" type="MeshInstance3D" parent="ENV" unique_id=1457495319]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 103.92625, 11.28467, -47.51956)
-mesh = SubResource("PlaneMesh_g4v7s")
+mesh = SubResource("PlaneMesh_k2iba")
 
 [node name="Area3D" type="Area3D" parent="ENV/Deathzone3" unique_id=375923731]
 script = ExtResource("4_v4yyn")
@@ -394,10 +641,10 @@ use_collision = true
 size = Vector3(52, 23, 6)
 
 [node name="CSGBox3D225" type="CSGBox3D" parent="ENV" unique_id=1363721936]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -165.5, -24.674866, -43)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -165.5, -24.674866, -28)
 material_override = ExtResource("1_qxdav")
 use_collision = true
-size = Vector3(137, 2, 120)
+size = Vector3(137, 2, 90)
 
 [node name="CSGBox3D231" type="CSGBox3D" parent="ENV" unique_id=461017274]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -235.5, 0.8251343, -57.5)
@@ -1222,10 +1469,22 @@ use_collision = true
 size = Vector3(6, 2, 9)
 
 [node name="CSGBox3D329" type="CSGBox3D" parent="ENV" unique_id=563101312]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -223.5759, -3.5, -75.12697)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -223.5759, -1.5, -77.12697)
 material_override = ExtResource("1_er3k5")
 use_collision = true
-size = Vector3(22, 12, 1)
+size = Vector3(22, 54, 5)
+
+[node name="CSGBox3D474" type="CSGBox3D" parent="ENV" unique_id=732254704]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -192.50436, -1.5, -72.12697)
+material_override = ExtResource("1_er3k5")
+use_collision = true
+size = Vector3(21.856934, 54, 5)
+
+[node name="CSGBox3D471" type="CSGBox3D" parent="ENV" unique_id=1389909526]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -219.0759, -3.5, -72.62697)
+material_override = ExtResource("1_er3k5")
+use_collision = true
+size = Vector3(1, 12, 6)
 
 [node name="CSGBox3D355" type="CSGBox3D" parent="ENV" unique_id=2005327246]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -223.5759, -3.5, -66.12697)
@@ -1329,6 +1588,12 @@ material_override = ExtResource("1_er3k5")
 use_collision = true
 size = Vector3(2, 7, 14)
 
+[node name="CSGBox3D470" type="CSGBox3D" parent="ENV" unique_id=1497582372]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -170.826, 11.5, -45.498547)
+material_override = ExtResource("1_er3k5")
+use_collision = true
+size = Vector3(2, 28, 1)
+
 [node name="CSGBox3D256" type="CSGBox3D" parent="ENV" unique_id=1476835166]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -203.826, 15.5, -57.998547)
 material_override = ExtResource("1_er3k5")
@@ -1342,13 +1607,13 @@ use_collision = true
 size = Vector3(2, 20, 14)
 
 [node name="CSGBox3D369" type="CSGBox3D" parent="ENV" unique_id=1081657866]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -210.826, 18.5, -81.99855)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -207.826, 18.5, -81.99855)
 material_override = ExtResource("1_er3k5")
 use_collision = true
 size = Vector3(2, 14, 14)
 
 [node name="CSGBox3D370" type="CSGBox3D" parent="ENV" unique_id=871500349]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -211.326, 10.5, -81.99855)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -208.326, 10.5, -81.99855)
 material_override = ExtResource("1_er3k5")
 use_collision = true
 size = Vector3(11, 2, 14)
@@ -1738,6 +2003,33 @@ use_collision = true
 size = Vector3(2, 1, 3)
 
 [node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D188" unique_id=921484425]
+disable_mode = 2
+
+[node name="CSGBox3D469" type="CSGBox3D" parent="ENV" unique_id=477590211 groups=["tkplatform"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -170.4818, -18, -45.16462)
+material_override = ExtResource("4_eav6o")
+use_collision = true
+size = Vector3(22, 11, 1)
+
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D469" unique_id=163328956]
+disable_mode = 2
+
+[node name="CSGBox3D472" type="CSGBox3D" parent="ENV" unique_id=426565289 groups=["tkplatform"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -163.4818, -20.5, -72.16462)
+material_override = ExtResource("4_eav6o")
+use_collision = true
+size = Vector3(36, 6, 1)
+
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D472" unique_id=1496910638]
+disable_mode = 2
+
+[node name="CSGBox3D473" type="CSGBox3D" parent="ENV" unique_id=1925829765 groups=["tkplatform"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -210.4818, -12, -72.440475)
+material_override = ExtResource("4_eav6o")
+use_collision = true
+size = Vector3(14, 23, 2)
+
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/CSGBox3D473" unique_id=1211655202]
 disable_mode = 2
 
 [node name="CSGBox3D454" type="CSGBox3D" parent="ENV" unique_id=1574412571 groups=["tkplatform"]]
@@ -2322,10 +2614,10 @@ use_collision = true
 size = Vector3(3, 5, 1)
 
 [node name="CSGBox3D31" type="CSGBox3D" parent="ENV" unique_id=2100868082]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.314209, 9, 4.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.314209, 9, 2.5)
 material_override = ExtResource("1_er3k5")
 use_collision = true
-size = Vector3(7, 1, 7)
+size = Vector3(7, 1, 11)
 
 [node name="CSGBox3D394" type="CSGBox3D" parent="ENV" unique_id=232665457]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.314209, 11, 7.5)
@@ -2971,6 +3263,159 @@ transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -21,
 material_override = ExtResource("1_er3k5")
 polygon = PackedVector2Array(-13, 1, -13, 2, 0, 2, 1, 1.78, 2, 1, 2, -1, 0.772, 0.673, 0, 1.01)
 
+[node name="Gravitypickup" parent="ENV" unique_id=332084249 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95.20541, 19.99544, -38.905075)
+
+[node name="Gravitypickup2" parent="ENV" unique_id=1732956102 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95.20541, 20.62851, -48.311417)
+
+[node name="Gravitypickup3" parent="ENV" unique_id=985733238 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95.20541, 19.65049, -59.339508)
+
+[node name="Gravitypickup4" parent="ENV" unique_id=120843988 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112.79459, 16.726765, -50.9352)
+
+[node name="Gravitypickup5" parent="ENV" unique_id=1231871928 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112.79459, 22.737696, -39.706734)
+
+[node name="Gravitypickup6" parent="ENV" unique_id=1551522857 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.645256, -2.0492725, 9.593578)
+
+[node name="Gravitypickup7" parent="ENV" unique_id=1433226151 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.7417, -0.049272537, 3.650105)
+
+[node name="Gravitypickup8" parent="ENV" unique_id=1282740978 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 103.52454, 6.2007275, 5.665504)
+
+[node name="Gravitypickup9" parent="ENV" unique_id=588416448 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 103.48845, 6.2007275, -0.21691233)
+
+[node name="Gravitypickup10" parent="ENV" unique_id=1871030817 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 103.54416, 6.2007275, -5.338752)
+
+[node name="Gravitypickup11" parent="ENV" unique_id=1303088777 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 97.50295, 0.9507276, 25.493155)
+
+[node name="Gravitypickup12" parent="ENV" unique_id=30344407 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85.12127, 26.950727, 20.180168)
+
+[node name="Gravitypickup13" parent="ENV" unique_id=685863265 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 84.711655, 26.950726, 24.731932)
+
+[node name="Gravitypickup14" parent="ENV" unique_id=1379538906 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.847965, 1.2007272, 15.315945)
+
+[node name="Gravitypickup15" parent="ENV" unique_id=1683838570 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.84619, 1.200727, 15.346196)
+
+[node name="Gravitypickup16" parent="ENV" unique_id=948742647 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.63128, 4.369777, 26.794596)
+
+[node name="Gravitypickup17" parent="ENV" unique_id=694078472 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 73.89585, -14.5, -21.684498)
+
+[node name="Gravitypickup18" parent="ENV" unique_id=206396206 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.20598, -14.5, -21.404425)
+
+[node name="Gravitypickup19" parent="ENV" unique_id=1087587568 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70.22119, -14.5, -62.533215)
+
+[node name="Gravitypickup20" parent="ENV" unique_id=264755304 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70.26983, -14.5, -66.15933)
+
+[node name="Gravitypickup21" parent="ENV" unique_id=1618544494 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.922768, -5.5, -83.97546)
+
+[node name="Gravitypickup22" parent="ENV" unique_id=72794344 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -211.02348, 11.5, -86.60269)
+
+[node name="Gravitypickup23" parent="ENV" unique_id=360449317 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -210.85435, 11.5, -81.5544)
+
+[node name="Gravitypickup24" parent="ENV" unique_id=1569628070 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -206.90063, -9.5, -80.51371)
+
+[node name="Gravitypickup25" parent="ENV" unique_id=1959428341 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -211.99178, -8.5, -92.604294)
+
+[node name="Gravitypickup26" parent="ENV" unique_id=225763890 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -205.47075, -9.5, -100.248085)
+
+[node name="Gravitypickup27" parent="ENV" unique_id=251170966 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -192.56975, -9.5, -92.31027)
+
+[node name="Gravitypickup28" parent="ENV" unique_id=1805558242 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -180.79585, -9.499999, -100.402756)
+
+[node name="Gravitypickup29" parent="ENV" unique_id=1245144570 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -98.56259, 11.5, -90.535774)
+
+[node name="Gravitypickup30" parent="ENV" unique_id=551255184 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -98.89388, 2.499999, -86.33184)
+
+[node name="Gravitypickup31" parent="ENV" unique_id=1020261537 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -129.66777, -6.5, -57.617096)
+
+[node name="Gravitypickup32" parent="ENV" unique_id=1121834396 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -109.86448, 4.5, 7.645953)
+
+[node name="Gravitypickup33" parent="ENV" unique_id=190282336 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -115.81, 4.5000005, 7.5191936)
+
+[node name="Gravitypickup34" parent="ENV" unique_id=1466940289 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -137.06367, 22.5, -3.3673546)
+
+[node name="Gravitypickup35" parent="ENV" unique_id=629147393 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -134.48352, 25.5, -0.116384506)
+
+[node name="Gravitypickup36" parent="ENV" unique_id=1473479811 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -132.66954, 35.5, 19.340261)
+
+[node name="Gravitypickup37" parent="ENV" unique_id=1812227813 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -123.8986, 35.5, 25.047483)
+
+[node name="Gravitypickup38" parent="ENV" unique_id=388068355 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -119.6536, 35.5, 24.971079)
+
+[node name="Gravitypickup39" parent="ENV" unique_id=1107992088 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -103.96415, 35.5, 22.513046)
+
+[node name="Gravitypickup40" parent="ENV" unique_id=15660330 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -46.258255, 34.5, 14.05821)
+
+[node name="Gravitypickup41" parent="ENV" unique_id=1739869194 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -200.57495, 9.325134, -25.979616)
+
+[node name="Gravitypickup42" parent="ENV" unique_id=882780741 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -211.14049, 9.325134, -25.38139)
+
+[node name="Gravitypickup43" parent="ENV" unique_id=831934267 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -212.92863, 9.325134, -40.698944)
+
+[node name="Gravitypickup44" parent="ENV" unique_id=972004229 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -190.47536, 7.5, -24.779652)
+
+[node name="Gravitypickup45" parent="ENV" unique_id=855962995 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1222289, 30.217773, 84.8387)
+
+[node name="Gravitypickup46" parent="ENV" unique_id=889376706 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0297114, 29.5, 74.28393)
+
+[node name="Gravitypickup47" parent="ENV" unique_id=284810993 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1222694, 29.5, 62.29942)
+
+[node name="Gravitypickup48" parent="ENV" unique_id=2063192205 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.3130994, 17.5, 23.236147)
+
+[node name="Gravitypickup49" parent="ENV" unique_id=2104442394 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.30213153, 17.5, 23.215336)
+
+[node name="Gravitypickup50" parent="ENV" unique_id=1232444729 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6540215, 0.5, -1.8906794)
+
+[node name="Gravitypickup51" parent="ENV" unique_id=883185921 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1277274, 0.5, -5.7228436)
+
 [node name="InteractiveItems" type="Node" parent="." unique_id=2000224141]
 
 [node name="Spoon" parent="InteractiveItems" unique_id=1130228868 instance=ExtResource("4_hfium")]
@@ -3061,6 +3506,154 @@ font_size = 92
 uppercase = true
 autowrap_mode = 2
 
+[node name="Gravitypickup" parent="." unique_id=1144413686 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5181823, 0.73299074, -8.041644)
+
+[node name="Gravitypickup2" parent="." unique_id=1826775662 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.69434, 5.7329907, -4.479576)
+
+[node name="Gravitypickup3" parent="." unique_id=150355501 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.580527, 5.599098, -4.3516307)
+
+[node name="Gravitypickup4" parent="." unique_id=800103984 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.222347, 14.5, 5.8415966)
+
+[node name="Gravitypickup5" parent="." unique_id=1435486775 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.624165, 14.5, 5.7865024)
+
+[node name="Gravitypickup6" parent="." unique_id=1217258553 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.3624496, 14.5, 5.1182666)
+
+[node name="Gravitypickup7" parent="." unique_id=613377670 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 10.5, 4.7860737)
+
+[node name="Gravitypickup8" parent="." unique_id=1589571936 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 16.5, 4.7860737)
+
+[node name="Gravitypickup9" parent="." unique_id=209861006 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 21.5, 4.7860737)
+
+[node name="Gravitypickup10" parent="." unique_id=320208498 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.613985, 37.95073, 9.377336)
+
+[node name="Gravitypickup11" parent="." unique_id=456445856 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42.493404, 16.5, -32.523197)
+
+[node name="Gravitypickup12" parent="." unique_id=1931934621 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.33491, 10.5, -38.143776)
+
+[node name="Gravitypickup13" parent="." unique_id=904820246 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.466667, 2.0311327, -20.205404)
+
+[node name="Gravitypickup14" parent="." unique_id=1125948755 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.466667, 2.0311327, -25.205404)
+
+[node name="Gravitypickup15" parent="." unique_id=648888983 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2538557, -6.534668, -80.38905)
+
+[node name="Gravitypickup16" parent="." unique_id=719880398 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2538557, -1.534668, -80.38905)
+
+[node name="Gravitypickup17" parent="." unique_id=1385178063 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6167998, 14.5, -90.50444)
+
+[node name="Gravitypickup18" parent="." unique_id=983994123 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.506091, 23.365288, -88.1908)
+
+[node name="Gravitypickup19" parent="." unique_id=786630221 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.506091, 23.365288, -88.1908)
+
+[node name="Gravitypickup20" parent="." unique_id=143959173 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.564794, 19.5, -60.892536)
+
+[node name="Gravitypickup21" parent="." unique_id=567242955 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5060072, 22.5, -60.892536)
+
+[node name="Gravitypickup22" parent="." unique_id=1459516242 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.493993, 18.5, -60.892536)
+
+[node name="Gravitypickup23" parent="." unique_id=731264423 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4939928, 21.5, -60.892536)
+
+[node name="Gravitypickup24" parent="." unique_id=830462592 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.506007, 21.5, -60.892536)
+
+[node name="Gravitypickup25" parent="." unique_id=1500156918 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.70308, 23.5, -51.31451)
+
+[node name="Gravitypickup26" parent="." unique_id=2096461555 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.718197, 23.5, -19.866629)
+
+[node name="Gravitypickup27" parent="." unique_id=126782501 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.749657, 23.5, -19.89198)
+
+[node name="Gravitypickup28" parent="." unique_id=955820566 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.122684, 2.5, -85.95495)
+
+[node name="Gravitypickup30" parent="." unique_id=1661669655 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.122684, 3.5, -89.95495)
+
+[node name="Gravitypickup29" parent="." unique_id=1025034103 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.702248, 2.5000005, -95.5408)
+
+[node name="Gravitypickup31" parent="." unique_id=502449622 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.702248, 3.5000005, -100.5408)
+
+[node name="Gravitypickup32" parent="." unique_id=1445743999 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.474907, 2.4999995, -105.98314)
+
+[node name="Gravitypickup33" parent="." unique_id=26218443 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.574457, 28.95073, -108.98696)
+
+[node name="Gravitypickup34" parent="." unique_id=1948109861 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.1458225, 24.5, -108.532875)
+
+[node name="Gravitypickup35" parent="." unique_id=1542293540 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.334738, 28.95073, -109.24963)
+
+[node name="Gravitypickup36" parent="." unique_id=501514736 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.26627, 28.95073, -105.594124)
+
+[node name="Gravitypickup37" parent="." unique_id=495313487 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.432907, 28.95073, -112.90489)
+
+[node name="Gravitypickup38" parent="." unique_id=1699292140 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.109695, 24.5, -104.28623)
+
+[node name="Gravitypickup39" parent="." unique_id=1603027992 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27.356369, 24.5, -104.60672)
+
+[node name="Gravitypickup40" parent="." unique_id=1509375141 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 72.89616, -5.2375073, -111.78456)
+
+[node name="Gravitypickup41" parent="." unique_id=150203606 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 82.75164, 2.5, -108.01541)
+
+[node name="Gravitypickup42" parent="." unique_id=866321798 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85.21292, 30.5, -112.921555)
+
+[node name="Gravitypickup43" parent="." unique_id=1319132365 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.134075, 26.5, -106.90142)
+
+[node name="Gravitypickup44" parent="." unique_id=1152596834 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.00919, 26.5, -108.094215)
+
+[node name="Gravitypickup45" parent="." unique_id=2141277003 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 98.24023, 13.499999, -109.1184)
+
+[node name="Gravitypickup46" parent="." unique_id=1853716917 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110.754105, 33.95073, -107.70975)
+
+[node name="Gravitypickup47" parent="." unique_id=1801120127 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 93.86524, 30.5, -74.3649)
+
+[node name="Gravitypickup48" parent="." unique_id=861258569 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 94.04332, 30.5, -67.503494)
+
+[node name="Gravitypickup49" parent="." unique_id=127051996 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 93.676285, 30.5, -57.754242)
+
 [connection signal="body_entered" from="ENV/Deathzone/Area3D" to="ENV/Deathzone/Area3D" method="_on_body_entered"]
+[connection signal="body_entered" from="ENV/Deathzone4/Area3D" to="ENV/Deathzone4/Area3D" method="_on_body_entered"]
 [connection signal="body_entered" from="ENV/Deathzone2/Area3D" to="ENV/Deathzone2/Area3D" method="_on_body_entered"]
 [connection signal="body_entered" from="ENV/Deathzone3/Area3D" to="ENV/Deathzone3/Area3D" method="_on_body_entered"]

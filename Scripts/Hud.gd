@@ -39,10 +39,17 @@ var _dive_indicator_scale: float = 1.0
 @export_group("Tooltip")
 @export var tooltip_item: Control
 
+@export_group("Bottle Counter")
+@export var bottle_label: RichTextLabel
+@export_multiline var bottle_text_format: String = "Bottles Picked Up: %d\nBottles Left: %d"
+var _bottles_total: int = 0
+var _bottles_picked_up: int = 0
+
 
 func _ready() -> void:
 	if shift_power_bar:
 		base_bar_color = shift_power_bar.modulate
+	_setup_bottle_counter()
 
 
 func _process(delta: float) -> void:
@@ -62,6 +69,25 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("CloseGame"):
 		get_tree().quit()
 
+func _setup_bottle_counter() -> void:
+	var bottles: Array[Node] = get_tree().get_nodes_in_group("gravity_pickup")
+	_bottles_total = bottles.size()
+	_bottles_picked_up = 0
+
+	for bottle in bottles:
+		bottle.collected.connect(_on_bottle_collected)
+
+	_update_bottle_label()
+
+func _on_bottle_collected() -> void:
+	_bottles_picked_up += 1
+	_update_bottle_label()
+
+func _update_bottle_label() -> void:
+	if not bottle_label:
+		return
+	var bottles_left: int = _bottles_total - _bottles_picked_up
+	bottle_label.text = bottle_text_format % [_bottles_picked_up, bottles_left]
 
 func update_graphics(delta: float) -> void:
 	if Cam_controller == null or player_cam == null:

@@ -1,6 +1,8 @@
 extends Area3D
 class_name GravityPickup
 
+signal collected
+
 @export var refill_amount: float = -1.0
 @export var pickup_effect: Node = null
 @export var wait_for_effect: bool = false
@@ -12,11 +14,12 @@ var _collected := false
 var _start_position: Vector3
 var _float_time: float = 0.0
 
+func _enter_tree() -> void:
+	add_to_group("gravity_pickup")
+
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
-
 	_start_position = position
-
 	_float_time = randf_range(0.0, TAU)
 
 func _process(delta: float) -> void:
@@ -25,27 +28,21 @@ func _process(delta: float) -> void:
 
 	_float_time += delta * float_speed
 	position.y = _start_position.y + sin(_float_time) * float_height
-
 	rotate_y(rotation_speed * delta)
 
-
 func _on_body_entered(body: Node3D) -> void:
-	
-
 	if _collected:
 		return
 
 	var gravity_controller: GravityController = body.get_node_or_null("GravityController")
-	
-
 	if not gravity_controller:
 		return
 
 	_collected = true
 	gravity_controller.refill_shift_power(refill_amount)
+	collected.emit()
 
 	_play_effect_and_free()
-
 
 func _play_effect_and_free() -> void:
 	set_deferred("monitoring", false)

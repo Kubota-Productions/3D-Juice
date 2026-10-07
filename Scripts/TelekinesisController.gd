@@ -4,6 +4,7 @@ class_name TelekinesisController
 var player: CharacterBody3D
 var camera: Camera3D
 var gravity_controller: GravityController
+signal platform_boost_finished(platform: Node3D)
 
 @export_group("Hold Position")
 @export var hold_offset: Vector3 = Vector3(0.6, 0.35, 1.4)
@@ -84,6 +85,7 @@ class PlatformData:
 	var body: AnimatableBody3D = null
 	var settle_frames: int = 0
 	var boost_speed: float = 0.0
+	var boost_target_y: float = 0.0
 
 var platforms: Dictionary = {}
 
@@ -486,21 +488,26 @@ func _ensure_platform_data(node: Node3D) -> PlatformData:
 	platforms[node.get_instance_id()] = data
 	_disable_builtin_platform_carry(data.body)
 	return data
-func slam_boost_platform(speed_multiplier: float) -> bool:
+
+func slam_boost_platform(speed_multiplier: float, rise: float) -> Node3D:
 	var node: Node3D = _get_platform_underfoot()
 	if node == null:
-		return false
+		return null
 
 	var data: PlatformData = _ensure_platform_data(node)
 	data.boost_speed = platform_rise_speed * maxf(speed_multiplier, 0.0)
+	data.boost_target_y = minf(node.global_position.y + maxf(rise, 0.0), data.max_y)
 	_set_platform_state(data, PlatformState.BOOSTED)
-	return true
+	return node
+
+func is_standing_on_platform(node: Node3D) -> bool:
+	return node != null and _get_platform_underfoot() == node
 
 func _update_platform_boosted(data: PlatformData, underfoot: Node3D, delta: float) -> void:
 	data.move_speed = data.boost_speed
 
 	var step: float = data.move_speed * delta
-	var remaining: float = data.max_y - data.node.global_position.y
+	var remaining: float = data.boost_target_y - data.node.global_position.y
 
 	var hit_top: bool = step >= remaining
 	if hit_top:
@@ -513,6 +520,7 @@ func _update_platform_boosted(data: PlatformData, underfoot: Node3D, delta: floa
 
 	if hit_top or blocked:
 		_set_platform_state(data, PlatformState.LOCKED)
+		platform_boost_finished.emit(data.node)
 
 func _begin_raising(node: Node3D) -> void:
 	var data: PlatformData = _ensure_platform_data(node)
