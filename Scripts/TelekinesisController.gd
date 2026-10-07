@@ -174,6 +174,8 @@ class PlatformData:
 	## measure how far the player is from the platform itself.
 	var local_bounds: AABB = AABB()
 	var sink_blocked: bool = false
+	var body: AnimatableBody3D = null
+	var settle_frames: int = 0
 	
 ## Every platform that has been touched, keyed by instance id.
 var platforms: Dictionary = {}
@@ -727,7 +729,10 @@ func _begin_raising(node: Node3D) -> void:
 		data = PlatformData.new()
 		data.node = node
 		data.home_y = node.global_position.y
+
+		_setup_platform_physics(data)
 		data.local_bounds = _compute_local_bounds(node)
+
 		if debug_platforms:
 			print("TelekinesisController: platform '", node.name, "' bounds: ", data.local_bounds)
 
@@ -735,8 +740,7 @@ func _begin_raising(node: Node3D) -> void:
 		data.max_y = data.home_y + max_rise
 
 		platforms[node.get_instance_id()] = data
-		_warn_if_not_animatable(node)
-		_disable_builtin_platform_carry(node)
+		_disable_builtin_platform_carry(data.body)
 
 	# Only one platform is ever being raised at a time.
 	if active_platform != null and active_platform != data:
@@ -745,7 +749,109 @@ func _begin_raising(node: Node3D) -> void:
 	_set_platform_state(data, PlatformState.RISING)
 	active_platform = data
 
+## Works out which node will be the physics body for a platform, and
+## builds whatever's missing. The tagged node can be:
+##   - a CSG shape, with or without an AnimatableBody3D child
+##   - an AnimatableBody3D (with a CSG child, or its own CollisionShape3D)
+## A box CollisionShape3D is generated from the CSG's size unless the
+## body already has a shape of its own. The CSG's built-in collision is
+## switched off in that case so there's only one collider.
+func _setup_platform_physics(data: PlatformData) -> void:
+	var root: Node3D = data.node
 
+	var body: AnimatableBody3D = root as AnimatableBody3D
+	if body == null:
+		body = _find_animatable(root)
+
+	if body == null:
+		body = AnimatableBody3D.new()
+		body.name = "TKPlatformBody"
+		root.add_child(body)
+
+	body.sync_to_physics = true
+
+	# A body that's a child of the moving node doesn't have its collision
+	# synced when only the PARENT moves, so it gets moved on its own.
+	if body != root:
+		body.top_level = true
+
+	data.body = body
+	data.settle_frames = 2
+
+	var existing: Array[CollisionShape3D] = []
+	_collect_collision_shapes(body, existing)
+	if not existing.is_empty():
+		return
+
+	var csg: CSGShape3D = _find_csg(root)
+	if csg == null:
+		push_warning(
+			"TelekinesisController: platform '%s' has no CollisionShape3D under its body and no CSG shape to build one from -- it can't be blocked by anything." % root.name
+		)
+		return
+
+	var local_box: AABB
+	if csg is CSGBox3D:
+		var box_size: Vector3 = (csg as CSGBox3D).size
+		local_box = AABB(-box_size * 0.5, box_size)
+	else:
+		local_box = csg.get_aabb()
+
+	if local_box.size.length_squared() < 0.0001:
+		push_warning(
+			"TelekinesisController: platform '%s': couldn't work out the CSG's size to build a collision shape." % root.name
+		)
+		return
+
+	var csg_xform: Transform3D = csg.global_transform
+
+	if body != root:
+		body.global_transform = Transform3D(
+			root.global_transform.basis.orthonormalized(),
+			root.global_transform.origin
+		)
+
+	var box := BoxShape3D.new()
+	box.size = local_box.size * csg_xform.basis.get_scale().abs()
+
+	var shape_node := CollisionShape3D.new()
+	shape_node.name = "TKPlatformShape"
+	shape_node.shape = box
+	body.add_child(shape_node)
+	shape_node.global_transform = Transform3D(
+		csg_xform.basis.orthonormalized(),
+		csg_xform * local_box.get_center()
+	)
+
+	body.collision_layer = csg.collision_layer
+	body.collision_mask = csg.collision_mask
+
+	# The body is the platform's collision from now on.
+	csg.use_collision = false
+
+
+func _find_csg(node: Node) -> CSGShape3D:
+	if node is CSGShape3D:
+		return node as CSGShape3D
+
+	for child in node.get_children():
+		var found: CSGShape3D = _find_csg(child)
+		if found:
+			return found
+
+	return null
+
+
+func _find_animatable(node: Node) -> AnimatableBody3D:
+	for child in node.get_children():
+		if child is AnimatableBody3D:
+			return child as AnimatableBody3D
+
+		var found: AnimatableBody3D = _find_animatable(child)
+		if found:
+			return found
+
+	return null
 ## Button released: the platform being raised freezes exactly where it is.
 func _release_platform() -> void:
 	if active_platform == null:
@@ -892,6 +998,9 @@ func _update_platform_rising(data: PlatformData, underfoot: Node3D, delta: float
 	# Max height or a ceiling/collider: stop and lock right there.
 	if hit_top or blocked:
 		_set_platform_state(data, PlatformState.LOCKED)
+	if data.settle_frames > 0:
+		data.settle_frames -= 1
+		return
 
 
 func _update_platform_locked(data: PlatformData, underfoot: Node3D) -> void:
@@ -914,7 +1023,13 @@ func _update_platform_returning(data: PlatformData, underfoot: Node3D, delta: fl
 		var wanted: float = dy
 
 		dy = maxf(dy, -_drop_clearance_above_player(data))
-		dy *= _sweep_shapes(_platform_shapes(data), Vector3(0.0, dy, 0.0), [], true, true)
+
+		# Sitting flush on the floor at home: skip the sweep so it settles
+		# exactly on its starting height.
+		var near_home: bool = current_y - data.home_y <= platform_safe_margin * 2.0
+		if not near_home:
+			dy *= _sweep_shapes(_platform_shapes(data), Vector3(0.0, dy, 0.0), [], true, true)
+
 		var blocked: bool = dy > wanted + 0.0001
 
 		if debug_platforms and blocked != data.sink_blocked:
@@ -936,15 +1051,15 @@ func _set_platform_y(node: Node3D, y: float) -> void:
 	p.y = y
 	node.global_position = p
 
-## Moves the platform by dy and, if the player is standing on it, moves
-## the player by exactly the same amount. Doing it here, in the same
-## frame, avoids the lag/jitter of waiting for move_and_slide() to pick
-## up the platform's velocity.
 func _move_platform(data: PlatformData, dy: float, underfoot: Node3D) -> void:
 	if is_zero_approx(dy):
 		return
 
 	_set_platform_y(data.node, data.node.global_position.y + dy)
+
+	# The body moves on its own (it's top-level), by the same amount.
+	if data.body != null and data.body != data.node:
+		_set_platform_y(data.body, data.body.global_position.y + dy)
 
 	if underfoot == data.node and player:
 		player.global_position += Vector3(0.0, dy, 0.0)
@@ -983,9 +1098,8 @@ func _allowed_platform_rise(data: PlatformData, step: float, has_rider: bool) ->
 
 func _platform_shapes(data: PlatformData) -> Array[CollisionShape3D]:
 	var shapes: Array[CollisionShape3D] = []
-	_collect_collision_shapes(data.node, shapes)
+	_collect_collision_shapes(data.body if data.body != null else data.node, shapes)
 	return shapes
-
 
 ## Sweeps each shape along `motion` and returns the fraction (0..1) of the
 ## motion that's free of obstacles. Uses the shape's owning body for the
@@ -1020,6 +1134,21 @@ func _sweep_shapes(
 		if owner_body:
 			excluded.append(owner_body.get_rid())
 			mask = owner_body.collision_mask
+		if ignore_characters or ignore_rigid_bodies:
+			var touching := PhysicsShapeQueryParameters3D.new()
+			touching.shape = shape_node.shape
+			touching.transform = shape_node.global_transform
+			touching.collision_mask = mask
+			touching.exclude = excluded
+			touching.margin = platform_safe_margin
+
+			for overlap in space.intersect_shape(touching, 16):
+				var touching_collider: Object = overlap["collider"]
+				if (
+					(ignore_characters and touching_collider is CharacterBody3D)
+					or (ignore_rigid_bodies and touching_collider is RigidBody3D)
+				):
+					excluded.append(overlap["rid"])
 
 		var resolved: bool = false
 
@@ -1050,7 +1179,6 @@ func _sweep_shapes(
 			)
 			probe.collision_mask = mask
 			probe.exclude = excluded
-			probe.margin = platform_safe_margin
 
 			var overlaps: Array[Dictionary] = space.intersect_shape(probe, 8)
 			var blocking: bool = overlaps.is_empty()
@@ -1084,70 +1212,9 @@ func _sweep_shapes(
 
 	return best
 
-## Wraps PhysicsBody3D.test_move(). Returns the part of `motion` the body
-## can travel before hitting something. Characters and/or rigid bodies can
-## be ignored (the player and NPCs standing on a platform, crates on it,
-## etc.); they're added as temporary collision exceptions and removed again.
-func _allowed_motion(
-	body: PhysicsBody3D,
-	motion: Vector3,
-	ignore_characters: bool,
-	ignore_rigid_bodies: bool
-) -> Vector3:
-	if body == null or motion.is_zero_approx():
-		return motion
-
-	# The platform's own mask may not include the player's layer, which
-	# would make the player invisible to test_move(). Always include it
-	# (and restore the mask afterwards).
-	var original_mask: int = body.collision_mask
-	if player and body != player:
-		body.collision_mask |= player.collision_layer
-
-	var ignored: Array[PhysicsBody3D] = []
-	var result := Vector3.ZERO
-
-	for i in range(MAX_PLATFORM_IGNORES + 1):
-		var collision := KinematicCollision3D.new()
-
-		if not body.test_move(body.global_transform, motion, collision, platform_safe_margin):
-			result = motion
-			break
-
-		var collider := collision.get_collider() as PhysicsBody3D
-		var skip: bool = collider != null and (
-			(ignore_characters and collider is CharacterBody3D)
-			or (ignore_rigid_bodies and collider is RigidBody3D)
-		)
-
-		if not skip:
-			result = collision.get_travel()
-			break
-
-		body.add_collision_exception_with(collider)
-		ignored.append(collider)
-
-	for other in ignored:
-		if is_instance_valid(other):
-			body.remove_collision_exception_with(other)
-
-	body.collision_mask = original_mask
-
-	# Never move backwards or further than asked.
-	if result.dot(motion) <= 0.0:
-		return Vector3.ZERO
-
-	return result.limit_length(motion.length())
-
-
-## The controller now carries the player itself (see _move_platform).
-## Without this, CharacterBody3D's built-in platform following would
-## carry them a second time. Only affects this platform's collision layer.
-func _disable_builtin_platform_carry(node: Node3D) -> void:
-	var collision_object := node as CollisionObject3D
-
-	if collision_object and player:
-		player.platform_floor_layers &= ~collision_object.collision_layer
+func _disable_builtin_platform_carry(body: CollisionObject3D) -> void:
+	if body and player:
+		player.platform_floor_layers &= ~body.collision_layer
 
 ## Distance from the player to the nearest point of the platform's
 ## collision bounds (0 if the player is inside them).
@@ -1248,20 +1315,6 @@ func _platform_from_collider(collider: Object) -> Node3D:
 		node = node.get_parent()
 
 	return null
-
-
-func _warn_if_not_animatable(node: Node3D) -> void:
-	var body := node as AnimatableBody3D
-
-	if body == null:
-		push_warning(
-			"TelekinesisController: '%s' is in group '%s' but isn't an AnimatableBody3D -- the player won't be carried smoothly. Tag the AnimatableBody3D itself." % [node.name, platform_group]
-		)
-	elif not body.sync_to_physics:
-		push_warning(
-			"TelekinesisController: '%s' has Sync To Physics turned off -- the player won't ride it properly. Turn it on in the Inspector." % node.name
-		)
-
 
 # ============================================================
 # UTILITY
