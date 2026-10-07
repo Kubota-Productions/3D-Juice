@@ -11,16 +11,12 @@ extends PlayerMovementModule
 @export var acceleration: float = 60.0
 @export var slide_duration: float = 1.1
 @export var cooldown: float = 3.0
-## After a dive, jumping into a wall runs you straight up it once, this high
-## and for this long (it slows to a stop at the top, then you fall).
 @export var wall_climb_height: float = 1.2
 @export var wall_climb_time: float = 0.35
-## How head-on you have to be heading into the wall (dot product, 1 = straight in).
 @export_range(0.0, 1.0) var wall_climb_min_approach: float = 0.5
 @export var wall_climb_momentum_transfer: float = 0.5
 @export var wall_climb_max_speed: float = 12.0
 
-## Strong enough that the climb follows its speed curve exactly.
 const WALL_CLIMB_ACCELERATION := 200.0
 
 var is_active := false
@@ -63,9 +59,6 @@ func on_slide_jump() -> void:
 	if player.slide.from_dive and not climb_used:
 		wall_climb_available = true
 
-
-## Only during the first jump (or a plain fall): once you've double jumped,
-## jumps_used is 2+ and the dive is gone until you land.
 func can_start() -> bool:
 	return (
 		not player.is_on_floor()
@@ -107,9 +100,6 @@ func start() -> void:
 
 	player.add_impulse(impulse)
 
-	# Diving uses up this airtime's wall runs/slides and gives one
-	# straight-up wall climb instead (unless one was already used before
-	# touching the ground). The climb can be wall-kicked out of.
 	player.wall.moves_used = player.wall.max_moves
 	used = true
 	wall_climb_available = not climb_used
@@ -140,11 +130,6 @@ func update(_delta: float) -> void:
 	if player.crouch_slide_pressed() and can_start():
 		start()
 
-
-## Hitting ground steeper than the body's normal floor limit doesn't count as
-## is_on_floor(), so the dive used to carry on down the slope until it found
-## flat ground. Any surface the slide can grip ends the dive (the slide it
-## lands in raises the floor angle, so it sticks to that slope).
 func touched_ground() -> bool:
 	if player.is_on_floor():
 		return true
@@ -158,8 +143,6 @@ func touched_ground() -> bool:
 		if acos(clampf(normal.dot(player.up_direction), -1.0, 1.0)) > max_angle:
 			continue
 
-		# Steeper than normal floor: only a real slope counts, not the
-		# corner of a flat ledge.
 		var surface_normal: Vector3 = player.slide.get_slope_surface_normal(collision)
 		if surface_normal == Vector3.ZERO:
 			continue
@@ -251,7 +234,6 @@ func update_wall_climb(delta: float) -> void:
 		player.wall.end_wall_movement(false)
 		return
 
-	# Topped out (or the wall ended): stop climbing and keep the upward speed.
 	var hit: Dictionary = player.wall.probe_wall(-player.wall.wall_normal)
 	if hit.is_empty():
 		player.wall.end_wall_movement(false)

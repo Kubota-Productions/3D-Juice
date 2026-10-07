@@ -12,7 +12,7 @@ extends CharacterBody3D
 @onready var player_collision_shape: CollisionShape3D = get_node_or_null("CollisionShape3D")
 const NORMAL_COLLISION_Y := 0.672
 const NORMAL_COLLISION_HEIGHT := 1.344
-# The short collider is shared by the slide and the crouch.
+
 const SLIDE_COLLISION_Y := 0.33
 const SLIDE_COLLISION_HEIGHT := 0.672
 
@@ -26,8 +26,6 @@ enum JumpKind { NORMAL, SLIDE, WALL, CROUCH, SLAM }
 
 var _stand_check_shape: CapsuleShape3D
 
-## How much upward speed move_and_slide() is allowed to add on its own
-## while airborne (see _limit_unearned_rise).
 const MAX_UNEARNED_RISE_TOLERANCE := 0.25
 
 @export var animation_controller: Node
@@ -247,24 +245,15 @@ func _setup_modules() -> void:
 var landing_brake_timer: float = 0.0
 @export var run_ramp_time: float = 0.35
 
-
 @export_group("Crouch")
-## Walking speed while crouched. Normal walking is walk_speed.
 @export var crouch_speed: float = 1.75
-## false: hold Crouch to stay crouched. true: tap Crouch to toggle.
 @export var crouch_is_toggle: bool = false
-## Jumping out of a crouch uses this profile instead of the normal jump.
-## Keep the rise/fall times in proportion to the height, or the gravity
-## gets very heavy/floaty (the defaults roughly match the normal jump's gravity).
 @export var crouch_jump_height: float = 4.0
 @export var crouch_jump_rise_time: float = 0.57
 @export var crouch_jump_fall_time: float = 0.5
 @export var crouch_jump_air_control: float = 0.45
 
-## Lifts the standing-height overlap test slightly off the floor so the
-## ground the player is already touching doesn't count as an obstruction.
 const STAND_CHECK_LIFT := 0.04
-## Releasing Crouch a moment before pressing jump still counts as a crouch jump.
 const CROUCH_JUMP_GRACE := 0.1
 const CROUCH_ACTION := &"Crouch"
 
@@ -636,14 +625,6 @@ func _apply_gravity(delta: float) -> void:
 	if velocity.dot(up_direction) > -max_fall_speed:
 		add_acceleration(-up_direction * get_fall_gravity())
 
-
-## Safety net for collision response. move_and_slide() can redirect
-## horizontal speed upward when the capsule catches a corner/edge or a steep
-## face while airborne (which is how a slide at speed can turn into
-## free height). Nothing the player does intentionally adds upward speed
-## *during* move_and_slide -- jumps, wall-run arcs, etc. are all applied
-## before it -- so any upward speed that appears while airborne beyond what
-## went in is removed. Grounded frames are skipped so ramps still carry you up.
 func _limit_unearned_rise(up_speed_before: float) -> void:
 	if is_on_floor():
 		return
@@ -706,12 +687,6 @@ func start_jump(kind: JumpKind = JumpKind.NORMAL, planar_launch: Vector3 = Vecto
 	if kind != JumpKind.WALL:
 		wall.kick_facing = false
 
-	# Other systems can already have queued vertical acceleration this frame
-	# (e.g. the wall-run entry impulse, which fires in the same frame as a
-	# buffered wall jump). Cancelling only the *current* velocity meant that
-	# vertical speed got cancelled twice, so the jump launched with the old
-	# fall speed added on top -- a big free boost. Cancel the velocity as it
-	# will be once the queued acceleration is integrated instead.
 	var predicted_velocity: Vector3 = get_predicted_velocity()
 	var impulse: Vector3 = -predicted_velocity.project(up_direction) + up_direction * _active_jump_velocity
 
@@ -722,9 +697,6 @@ func start_jump(kind: JumpKind = JumpKind.NORMAL, planar_launch: Vector3 = Vecto
 	jump_phase = JumpPhase.RISING
 	jump_phase_timer = _active_rise_time
 
-
-## The short collider is used whenever the player is sliding OR crouching.
-## Also swaps the body's floor settings, which only the slide changes.
 func refresh_collision() -> void:
 	_set_short_collision(slide.is_active or is_crouching)
 	slide.apply_floor_settings()
@@ -751,10 +723,6 @@ func _build_stand_check_shape() -> void:
 	_stand_check_shape = capsule.duplicate() as CapsuleShape3D
 	_stand_check_shape.height = NORMAL_COLLISION_HEIGHT
 
-
-## True if the full-height collider would fit at the player's current
-## position. Used so the slide never ends (and the collider never grows)
-## while there's geometry overhead for it to grow into.
 func can_stand_up() -> bool:
 	if not _stand_check_shape:
 		return true
@@ -783,9 +751,6 @@ func get_capsule_radius() -> float:
 
 	return 0.3
 
-
-## Slide and Crouch are treated as one pair of buttons: either one starts a
-## slide when you're at slide speed, and either one holds the crouch.
 func crouch_slide_pressed() -> bool:
 	if Input.is_action_just_pressed("Slide"):
 		return true
@@ -803,8 +768,6 @@ func crouch_slide_held() -> bool:
 var is_crouching := false
 var _crouch_jump_grace_timer: float = 0.0
 
-
-## Crouch unless you're at the speed where the same button would start a slide.
 func _can_start_crouch() -> bool:
 	return is_on_floor() and not slide.is_active and not movement_locked and not slide.can_start()
 
@@ -841,14 +804,11 @@ func _update_crouch(delta: float) -> void:
 
 	if is_crouching:
 		var lost_ground: bool = not is_on_floor() and coyote_timer <= 0.0
-
-		# Airborne (or locked): no floor to clip through, so just stand.
+		
 		if movement_locked or lost_ground:
 			_end_crouch(false)
 			return
 
-		# Only stand up if the full-height collider fits; otherwise stay
-		# crouched until the cover ends.
 		if stop_requested and can_stand_up():
 			_end_crouch(true)
 		return

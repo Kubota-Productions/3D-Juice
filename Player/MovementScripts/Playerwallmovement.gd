@@ -35,7 +35,6 @@ const KICK_MIN_SPEED := 0.5
 var state: WallState = WallState.NONE
 var is_wall_running := false
 var is_wall_sliding := false
-## The dive's straight-up wall climb (see PlayerDive.try_start_wall_climb).
 var is_wall_climbing := false
 var side: int = 0
 var wall_normal: Vector3 = Vector3.ZERO
@@ -212,9 +211,6 @@ func update_slide() -> void:
 
 	wall_normal = hit["normal"]
 
-
-## Called by the player's jump handling. Returns true if the wall consumed
-## the jump press.
 func try_handle_jump() -> bool:
 	if state != WallState.NONE:
 		start_wall_jump()

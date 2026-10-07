@@ -1,28 +1,16 @@
 extends Node
 class_name InteractionHighlightController
 
-# ============================================================
-# REFERENCES
-# ============================================================
 var player: CharacterBody3D
 var camera: Camera3D
 
-# ============================================================
-# TARGETING
-# ============================================================
 @export_group("Targeting")
 @export var reach: float = 6.0
 @export var target_group: String = "interactable"
 
-# ============================================================
-# HIGHLIGHT
-# ============================================================
 @export_group("Highlight")
 @export var fade_time: float = 0.15
 
-# ============================================================
-# STATE
-# ============================================================
 class HighlightState:
 	var materials: Array[ShaderMaterial] = []
 	var amount: float = 0.0
@@ -30,23 +18,15 @@ class HighlightState:
 var current_target: Node = null
 var active_highlights: Dictionary = {}
 
-
 func setup(owner: CharacterBody3D, cam: Camera3D) -> void:
 	player = owner
 	camera = cam
-
-	# Make sure every existing highlight overlay starts disabled.
 	_initialize_highlight_overlays()
 
-
-# ============================================================
-# INITIALIZE
-# ============================================================
 func _initialize_highlight_overlays() -> void:
 	if not player:
 		return
 
-	# Find every node in the scene that belongs to the interactable group.
 	var interactables := get_tree().get_nodes_in_group(target_group)
 
 	for target in interactables:
@@ -65,10 +45,6 @@ func _initialize_highlight_overlays() -> void:
 		" interactable(s) with highlight overlays disabled."
 	)
 
-
-# ============================================================
-# UPDATE
-# ============================================================
 func update(delta: float) -> void:
 	if not camera or not player:
 		return
@@ -139,10 +115,6 @@ func update(delta: float) -> void:
 
 			active_highlights.erase(target)
 
-
-# ============================================================
-# TARGET FINDING
-# ============================================================
 func _find_target() -> Node:
 	var from: Vector3 = camera.global_position
 	var to: Vector3 = (
@@ -178,10 +150,6 @@ func _find_target() -> Node:
 
 	return null
 
-
-# ============================================================
-# COLLECT OVERLAY MATERIALS
-# ============================================================
 func _collect_highlight_materials(
 	node: Node,
 	out_list: Array

@@ -12,8 +12,8 @@ var spring_arm: SpringArm3D
 var ground_ray_origin: Marker3D
 @export var gravity_strength := 20
 
-@export var shift_momentum_acceleration: float = 40.0  # units/sec^2, how fast velocity turns toward the shift direction
-@export var levitate_deceleration: float = 15.0  # units/sec^2
+@export var shift_momentum_acceleration: float = 40.0  
+@export var levitate_deceleration: float = 15.0  
 var levitate_start_velocity: Vector3 = Vector3.ZERO
 @export var shift_start_speed := 8.0
 @export var shift_acceleration := 15.0
@@ -28,11 +28,6 @@ var shift_power: float = 100.0
 @export var shift_regen_delay_after_empty: float = 3.0
 var regen_delay_timer: float = 0.0
 
-## Power locked away by external systems (e.g. currently-held
-## telekinesis objects). shift_power itself is already reduced by
-## this amount at the moment it's reserved -- this value only exists
-## to cap how high regen (and refill_shift_power) can climb back to,
-## so reserved chunks stay drained until explicitly released.
 var reserved_power: float = 0.0
 
 @export_group("Wall Walking")
@@ -92,8 +87,6 @@ func apply_gravity(_delta):
 	if gravity_state == GravityState.LEVITATING:
 		return
 
-	# Gravity was already the one acceleration-shaped thing in here --
-	# now it goes through the accumulator like everything else.
 	player.add_acceleration(gravity_direction * gravity_strength)
 
 func _try_levitate_transition() -> bool:
@@ -166,9 +159,6 @@ func update_shift(delta):
 
 	var target_velocity: Vector3 = gravity_direction * shift_speed
 
-	# Was move_toward() straight onto velocity. Same no-overshoot
-	# behavior, but expressed as a force so it stacks with everything
-	# else contributing this frame instead of overwriting it.
 	player.add_acceleration(
 		Player.acceleration_toward(
 			player.velocity,
@@ -179,8 +169,6 @@ func update_shift(delta):
 	)
 	
 func update_levitating(delta: float) -> void:
-	# Decelerate toward a dead stop -- as a braking force, so it eases
-	# to rest rather than snapping the last fraction of velocity away.
 	player.add_acceleration(
 		Player.acceleration_toward(
 			player.velocity,
@@ -224,7 +212,6 @@ func update_shift_power(delta: float, is_power_sprinting: bool = false) -> void:
 		if regen_delay_timer > 0.0:
 			regen_delay_timer -= delta
 		elif player.is_on_floor():
-			# Only recover power when actually grounded.
 			var regen_ceiling: float = max_shift_power - reserved_power
 			shift_power = min(
 				shift_power + shift_regen_rate * delta,
@@ -246,7 +233,7 @@ func update_wall_follow(delta: float) -> void:
 	var hit = player.get_world_3d().direct_space_state.intersect_ray(query)
 
 	if not hit or hit.normal.length_squared() < 0.0001:
-		return  # no usable surface data this frame -- keep last known gravity_direction
+		return 
 
 	var new_normal: Vector3 = hit.normal
 
@@ -265,16 +252,8 @@ func update_wall_follow(delta: float) -> void:
 		gravity_direction = (step_rotation * gravity_direction).normalized()
 		player.up_direction = -gravity_direction
 
-		# Not an acceleration -- the gravity frame itself is rotating,
-		# so existing momentum gets reinterpreted in the new basis at
-		# unchanged magnitude.
 		player.rotate_velocity(step_rotation)
 
-## Deducts `amount` from shift_power immediately and marks it as
-## reserved, so update_shift_power()'s regen can't climb back past
-## (max_shift_power - reserved_power) until release_reserved_power()
-## is called with a matching amount. Returns false (and does nothing)
-## if there isn't enough currently-available power to cover it.
 func reserve_power(amount: float) -> bool:
 	if amount > shift_power:
 		return false
@@ -284,18 +263,9 @@ func reserve_power(amount: float) -> bool:
 	shift_power_changed.emit(shift_power, max_shift_power)
 	return true
 
-## Lifts the regen ceiling back up by `amount` -- does NOT instantly
-## refund shift_power, regen just gradually reclaims the freed headroom.
 func release_reserved_power(amount: float) -> void:
 	reserved_power = max(reserved_power - amount, 0.0)
 
-## One-shot spend: deducts `amount` from shift_power if (and only if)
-## there's enough available, same "can't afford it" semantics as
-## reserve_power but with no lock/release bookkeeping -- for costs
-## that are paid once and don't need to be given back later (e.g. an
-## air jump), unlike a telekinesis hold which reserves power for as
-## long as the object stays held. Returns false (and does nothing) if
-## unaffordable, so callers can gate the action on the return value.
 func drain_power(amount: float) -> bool:
 	if amount > shift_power:
 		return false
@@ -307,9 +277,6 @@ func drain_power(amount: float) -> bool:
 	return true
 
 func refill_shift_power(amount: float = -1.0) -> void:
-	# amount < 0 means "fill completely"; otherwise add a partial amount.
-	# Capped by reserved_power same as regen, for the same reason --
-	# a refill pickup shouldn't be able to bypass a telekinesis lock.
 	var ceiling: float = max_shift_power - reserved_power
 
 	if amount < 0.0:
@@ -317,7 +284,7 @@ func refill_shift_power(amount: float = -1.0) -> void:
 	else:
 		shift_power = min(shift_power + amount, ceiling)
 
-	regen_delay_timer = 0.0  # a pickup should clear any regen delay too
+	regen_delay_timer = 0.0  
 	shift_power_changed.emit(shift_power, max_shift_power)
 
 func detect_wall():
@@ -335,12 +302,10 @@ func attach_to_surface(hit):
 	var normal: Vector3 = hit.normal
 
 	if normal.length_squared() < 0.0001:
-		return  # degenerate normal (e.g. hit_from_inside on concave geometry) -- ignore, don't attach
+		return 
 
 	if normal.angle_to(Vector3.UP) <= deg_to_rad(floor_normal_buffer_deg):
 		return_to_ground()
-		# Intentional hard stop: the body is being snapped to the hit
-		# position, so carrying momentum across that teleport is wrong.
 		player.hard_stop()
 		player.global_position = hit.position
 		if spring_arm:
@@ -349,7 +314,6 @@ func attach_to_surface(hit):
 
 	gravity_direction = -normal
 	player.up_direction = normal
-	# Same reasoning -- position is being snapped, so is velocity.
 	player.hard_stop()
 	player.global_position = hit.position + normal * wall_attach_clearance
 

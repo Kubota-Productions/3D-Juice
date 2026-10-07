@@ -8,13 +8,9 @@ extends Control
 @export var player: Player
 @export var speed_lines: ColorRect
 
-# ============================================================
-# LOOK AT  (drives a LookAtModifier3D on the character's head/spine)
-# ============================================================
 @export_group("Look At")
-@export var look_at_target: Node3D  # a Marker3D that LookAtModifier3D's Target Node points at
+@export var look_at_target: Node3D
 
-#hud flash
 @export var flash_threshold: float = 0.3
 @export var flash_speed_min: float = 3.0
 @export var flash_speed_max: float = 8.0
@@ -23,19 +19,13 @@ var flash_time: float = 0.0
 var base_bar_color: Color = Color.WHITE
 
 @export_group("Speed Lines")
-@export var speed_lines_start_ratio: float = 0.55  # fraction of max speed where lines start appearing
-@export var speed_lines_full_ratio: float = 0.9    # fraction of max speed where lines reach full intensity
+@export var speed_lines_start_ratio: float = 0.55  
+@export var speed_lines_full_ratio: float = 0.9   
 @export var speed_lines_smoothing_time: float = 0.25
-## While shifting, lines fade based on how closely the camera faces the
-## shift direction (dot product, -1..1). Below _min: fully faded out.
-## At/above _full: no fade from this at all. Between: smoothstep blend.
 @export var speed_lines_shift_align_min: float = 0.2
 @export var speed_lines_shift_align_full: float = 0.7
 var speed_lines_intensity: float = 0.0
 
-# ============================================================
-# WALL MOVE INDICATORS
-# ============================================================
 @export_group("Wall Move Indicators")
 @export var wall_power_indicator1: Control
 @export var wall_power_indicator2: Control
@@ -46,12 +36,7 @@ var speed_lines_intensity: float = 0.0
 @export var dive_indicator_shrink_speed: float = 8.0
 var _dive_indicator_scale: float = 1.0
 
-# ============================================================
-# TOOLTIP
-# ============================================================
 @export_group("Tooltip")
-## Any Control. Toggled shown/hidden each time the "DismissToolTip"
-## input action is pressed. Its visibility in the editor is its starting state.
 @export var tooltip_item: Control
 
 
@@ -82,25 +67,20 @@ func update_graphics(delta: float) -> void:
 	if Cam_controller == null or player_cam == null:
 		return
 
-	# Boresight world position -- shared by the 2D reticle and the 3D look-at target.
 	var boresight_world_pos: Vector3 = Cam_controller.get_boresight_pos()
 
-	# Boresight (2D reticle)
 	if boresight:
 		var boresight_screen_pos: Vector2 = player_cam.unproject_position(boresight_world_pos)
 		boresight.position = boresight_screen_pos - boresight.size / 2
 
-	# Drive the LookAtModifier3D's target to the same point in world space.
 	if look_at_target:
 		look_at_target.global_position = boresight_world_pos
 
-	# Mouse Aim Position
 	if mouse_pos:
 		var mouse_aim_world_pos: Vector3 = Cam_controller.get_mouse_aim_pos()
 		var mouse_pos_screen_pos: Vector2 = player_cam.unproject_position(mouse_aim_world_pos)
 		mouse_pos.position = mouse_pos_screen_pos - mouse_pos.size / 2
 
-	# Shift Power Bar
 	if shift_power_bar and gravity_controller:
 		shift_power_bar.max_value = gravity_controller.max_shift_power
 		shift_power_bar.value = gravity_controller.shift_power
@@ -115,23 +95,15 @@ func update_graphics(delta: float) -> void:
 			flash_time = 0.0
 			shift_power_bar.modulate = base_bar_color
 
-	# Speed Lines
 	if speed_lines and player:
 		var speed_ratio: float
 
 		if gravity_controller and gravity_controller.gravity_state == GravityController.GravityState.SHIFTING:
-			# predicted_speed is planar speed (velocity.slide(gravity_direction)) --
-			# during a shift, velocity is almost entirely ALONG gravity_direction,
-			# so it gets sliced away to near-zero and never registers here. Use
-			# the actual shift speed instead while actively shifting.
 			speed_ratio = clampf(
 				gravity_controller.shift_speed / max(gravity_controller.max_shift_speed, 0.001),
 				0.0, 1.0
 			)
 
-			# Fade out when looking away from the direction of travel --
-			# the effect should only read as "you're going fast" when
-			# you're actually facing where you're going.
 			var camera_forward: Vector3 = -player_cam.global_transform.basis.z
 			var shift_direction: Vector3 = gravity_controller.gravity_direction.normalized()
 			var alignment: float = camera_forward.dot(shift_direction)
@@ -169,7 +141,6 @@ func update_dive_indicator(delta: float) -> void:
 
 	Dive_indicator1.scale = Vector2.ONE * _dive_indicator_scale
 
-# WALL MOVE INDICATORS
 func update_wall_indicators() -> void:
 	if not player:
 		return
@@ -180,10 +151,6 @@ func update_wall_indicators() -> void:
 	if wall_power_indicator2:
 		wall_power_indicator2.visible = remaining >= 2
 
-
-## A wall run counts as available when the player isn't mid-run, still has
-## runs left (Player resets the count on landing), and wall movement isn't
-## disabled by being locked or in OTS mode.
 func _wall_moves_remaining() -> int:
 	if player.movement_locked or player.is_ots_mode:
 		return 0

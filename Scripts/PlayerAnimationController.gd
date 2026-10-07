@@ -10,12 +10,10 @@ var anim_playback: AnimationNodeStateMachinePlayback
 
 var mesh_instances: Array[MeshInstance3D] = []
 
-
 @export_group("Locomotion Blend")
 @export var speed_blend_smoothing_time: float = 0.06
 
 var smoothed_locomotion_speed: float = 0.0
-
 
 @export_group("Wall Run Lean")
 @export var wall_run_lean_angle_deg: float = 8.0
@@ -23,14 +21,12 @@ var smoothed_locomotion_speed: float = 0.0
 
 var current_wall_run_lean: float = 0.0
 
-
 @export_group("Wall Run Animation")
 @export var wall_run_speed_scale_min: float = 0.25
 @export var wall_run_speed_scale_max: float = 1.25
 
 var _wall_run_time_scale_params: Dictionary = {}
 var _current_wall_run_state: String = ""
-
 
 @export_group("Landing Anticipation")
 @export var land_anim_duration: float = 0.25
@@ -40,35 +36,20 @@ var _current_wall_run_state: String = ""
 var land_anim_active: bool = false
 var landing_timer: float = 0.0
 
-
 @export_group("Jump To Fall")
 @export var fall_anticipation_time: float = 0.1
 
-
 @export_group("Slide Exit Blending")
-## Crossfade (seconds) when the slide hands off to walking, jogging or
-## running. Written onto the tree's Slide -> BlendSpace1D transition at
-## startup. Set to -1 to leave whatever the AnimationTree editor has.
 @export var slide_to_locomotion_blend_time: float = 0.25
-## Same, for the Slide -> CrouchBlend transition.
 @export var slide_to_crouch_blend_time: float = 0.2
 
-
 @export_group("Dive Blending")
-## Crossfade (seconds) into the dive from any airborne state. Written onto
-## every transition into Dive at startup, and missing ones are added. Set to
-## -1 to leave existing transitions as the AnimationTree editor has them.
 @export var into_dive_blend_time: float = 0.15
-## Crossfade (seconds) from the dive into the slide it lands in.
 @export var dive_to_slide_blend_time: float = 0.1
 
 @export_group("Hover Blending")
-## Name of the hover clip on the AnimationPlayer. If it doesn't exist, the
-## Hover state reuses the Fall animation until you add one.
 @export var hover_animation_name: String = "Hover"
-## Crossfade (seconds) into the hover from any airborne state.
 @export var into_hover_blend_time: float = 0.15
-## Crossfade (seconds) out of the hover into falling, landing, wall moves, etc.
 @export var out_of_hover_blend_time: float = 0.2
 
 
@@ -104,13 +85,10 @@ const CROUCH_STATE := "CrouchBlend"
 const WALL_RUN_LEFT_STATE := "WallRunLeft"
 const WALL_RUN_RIGHT_STATE := "WallRunRight"
 const DIVE_STATE := "Dive"
-## The dive's straight-up wall climb. Falls back to WallSlide (which also
-## faces the wall) until a WallClimb state is added to the AnimationTree.
 const WALL_CLIMB_STATE := "WallClimb"
 const WALL_CLIMB_FALLBACK_STATE := "WallSlide"
 const WALL_RUN_TIME_SCALE_NODE := "TimeScale"
 
-## Every state the player can be in when a dive starts.
 const DIVE_ENTRY_STATES: Array[String] = [
 	"Fall",
 	"Jump",
@@ -124,7 +102,6 @@ const DIVE_ENTRY_STATES: Array[String] = [
 const HOVER_STATE := "Hover"
 const HOVER_FALLBACK_STATE := "Fall"
 
-## States the player can be in when a hover starts.
 const HOVER_ENTRY_STATES: Array[String] = [
 	"Fall",
 	"Jump",
@@ -135,7 +112,6 @@ const HOVER_ENTRY_STATES: Array[String] = [
 	"Land"
 ]
 
-## States a hover can hand off to (release -> Fall, landing -> Land, etc.).
 const HOVER_EXIT_STATES: Array[String] = [
 	"Fall",
 	"Land",
@@ -231,12 +207,6 @@ func _travel_if_present(state_name: String) -> void:
 			)
 		return
 
-	# travel() takes the shortest route through any transitions it's allowed
-	# to use, and plays every state along the way. Most of the direct
-	# transitions in the tree are disabled (Fall -> Land, for one), so a
-	# landing used to be routed Fall -> Dive -> Land and played the dive on the
-	# way. Only travel when there's a direct transition; otherwise jump
-	# straight to the state instead of detouring through others.
 	var current: StringName = anim_playback.get_current_node()
 
 	if current == StringName(state_name) or _has_direct_transition(machine, current, state_name):
@@ -262,11 +232,6 @@ func _has_direct_transition(
 
 	return false
 
-
-## How long travel() crossfades between two states is the xfade_time on the
-## transition between them, and it defaults to 0 -- a hard cut. Nothing in
-## this script ever set it, which is why leaving the slide looked immediate.
-## Set it here so it doesn't have to be dialled in by hand in the editor.
 func _apply_slide_blend_times() -> void:
 	var machine := animation_tree.tree_root as AnimationNodeStateMachine
 	if not machine:
@@ -291,8 +256,6 @@ func _apply_slide_blend_times() -> void:
 			if slide_to_crouch_blend_time >= 0.0:
 				transition.xfade_time = slide_to_crouch_blend_time
 
-	# Without a direct transition, travel() routes through whatever states
-	# do connect, so the exit blends through them instead of straight across.
 	if machine.has_node(LOCOMOTION_STATE) and not found_locomotion:
 		push_warning(
 			"PlayerAnimationController: no direct '%s' -> '%s' transition in the AnimationTree; "
@@ -308,9 +271,6 @@ func _apply_slide_blend_times() -> void:
 		)
 
 
-## The tree only had Dive -> Land, so travel() had no route from the dive to
-## the slide it lands in (and none into the dive from a wall kick, a slide
-## jump or a predicted landing). Add the missing direct transitions here.
 func _setup_dive_transitions() -> void:
 	var machine := animation_tree.tree_root as AnimationNodeStateMachine
 	if not machine or not machine.has_node(DIVE_STATE):
@@ -345,15 +305,9 @@ func _ensure_transition(
 		transition.xfade_time = maxf(xfade, 0.0)
 		machine.add_transition(from_state, to_state, transition)
 
-	# Switch straight away (not at the end of the current clip) and make
-	# sure travel() is allowed to use it.
 	transition.switch_mode = AnimationNodeStateMachineTransition.SWITCH_MODE_IMMEDIATE
 	transition.advance_mode = AnimationNodeStateMachineTransition.ADVANCE_MODE_ENABLED
 
-## Makes sure the tree has a "Hover" state wired up. If you've already built
-## one in the AnimationTree editor it's used as-is and only missing transitions
-## are added. Otherwise one is created here, playing hover_animation_name, or
-## reusing the Fall animation until a real hover clip exists.
 func _setup_hover_state() -> void:
 	var machine := animation_tree.tree_root as AnimationNodeStateMachine
 	if not machine:
@@ -388,9 +342,6 @@ func _setup_hover_state() -> void:
 		if machine.has_node(to_state):
 			_ensure_transition(machine, HOVER_STATE, to_state, out_of_hover_blend_time)
 
-## Keeps both ground blend spaces positioned at the current speed. Called
-## while sliding (when neither is the active state) so whichever one the slide
-## hands off to is already at the right position when the crossfade begins.
 func _push_blend_positions() -> void:
 	animation_tree.set(LOCOMOTION_BLEND_PARAM, smoothed_locomotion_speed)
 	animation_tree.set(CROUCH_BLEND_PARAM, smoothed_locomotion_speed)
@@ -818,8 +769,6 @@ func update(delta: float) -> void:
 	if player.is_crouching:
 		_update_locomotion_speed(delta)
 
-		# Position the blend space before travelling into it so the
-		# crossfade starts from the right pose.
 		animation_tree.set(
 			CROUCH_BLEND_PARAM,
 			smoothed_locomotion_speed
@@ -851,8 +800,6 @@ func update(delta: float) -> void:
 
 	_update_locomotion_speed(delta)
 
-	# Position the blend space before travelling into it so the crossfade
-	# (out of the slide, crouch, a jump...) starts from the right pose.
 	animation_tree.set(
 		LOCOMOTION_BLEND_PARAM,
 		smoothed_locomotion_speed

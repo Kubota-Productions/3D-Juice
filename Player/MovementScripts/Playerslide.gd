@@ -40,8 +40,6 @@ var elapsed: float = 0.0
 var air_time: float = 0.0
 var last_downhill: float = 0.0
 
-## The body's own floor settings, cached in setup so the slide can raise
-## them temporarily and put them back afterwards.
 var default_floor_max_angle: float = 0.785398
 var default_floor_snap_length: float = 0.1
 
@@ -101,10 +99,6 @@ func apply_floor_settings() -> void:
 		player.floor_max_angle = default_floor_max_angle
 		player.floor_snap_length = default_floor_snap_length
 
-
-## True when the slide is heading up a surface that only counts as floor
-## because of the slide's raised floor angle (i.e. steeper than the body's
-## normal limit). Without this the slide would run up steep walls.
 func is_climbing_steep_slope() -> bool:
 	if not player.is_on_floor():
 		return false
@@ -120,9 +114,6 @@ func is_climbing_steep_slope() -> bool:
 
 	return direction.dot(downhill.normalized()) < STEEP_UPHILL_LIMIT
 
-
-## Blocked by something while crouched under cover: hand steering back to the
-## player so they can crawl back out instead of being stuck in the slide.
 func steer_in_crawlspace() -> void:
 	var input_direction: Vector3 = player.get_input_direction()
 	if input_direction.length_squared() < 0.0001:
@@ -131,12 +122,6 @@ func steer_in_crawlspace() -> void:
 	direction = input_direction
 	elapsed = 0.0
 
-
-## The slide ran its course. If the slide/crouch button is still held, drop
-## straight into a crouch instead of standing up. (Jumping out of the slide,
-## losing the ground, or entering OTS mode use end() directly and never
-## crouch.) The crouch starts before the slide ends so the short collider
-## never grows for a frame in between.
 func finish(allow_jump_grace: bool) -> void:
 	var stay_low: bool = (
 		player.is_on_floor()
@@ -151,13 +136,6 @@ func finish(allow_jump_grace: bool) -> void:
 
 	end(allow_jump_grace)
 
-
-## The normal of the surface itself at a contact, or Vector3.ZERO if the
-## contact isn't on a flat-enough face. When the capsule's rounded bottom
-## presses on a corner (the edge of a flat ledge or step), the contact normal
-## points from the corner toward the capsule and comes out angled even
-## though neither face is. Ray-casting the face at the contact, and a little
-## further up it, only agrees on a normal when there really is a slope there.
 func get_slope_surface_normal(collision: KinematicCollision3D) -> Vector3:
 	var space: PhysicsDirectSpaceState3D = player.get_world_3d().direct_space_state
 	if not space:
@@ -207,9 +185,6 @@ func try_steep_slope_slide() -> void:
 	if player.jump_phase == Player.JumpPhase.RISING:
 		return
 
-	# Standing on ordinary floor, the player has to push up into the slope
-	# to start the slide. If they're airborne (jumped or dropped onto it, or
-	# skidding down it because it doesn't count as floor), no input is needed.
 	var input_direction: Vector3 = player.get_input_direction()
 	var needs_push: bool = player.is_on_floor()
 	if needs_push and input_direction.length_squared() < 0.0001:
@@ -246,8 +221,6 @@ func try_steep_slope_slide() -> void:
 		if needs_push and input_direction.dot(downhill) > -STEEP_SLOPE_PUSH_THRESHOLD:
 			continue
 
-		# Nowhere to slide to (wall at the bottom): don't start, or it
-		# would start and end every few frames.
 		if player.test_move(player.global_transform, downhill * STEEP_SLOPE_CLEARANCE):
 			continue
 
@@ -267,28 +240,18 @@ func update(delta: float) -> void:
 		else:
 			air_time += delta
 
-		# The old check used the 0.15s coyote timer, which a fast downhill
-		# slide easily outlasts. The slide now gets its own, longer grace.
 		var lost_ground: bool = air_time > air_grace
 		var blocked: bool = (
 			(elapsed > 0.1 and player.get_planar_speed() < MIN_SPEED)
 			or is_climbing_steep_slope()
 		)
-
-		# Airborne too long (or locked): there's no floor to clip through, so just end it.
 		if player.movement_locked or lost_ground:
 			end(false)
 			return
 
-		# Still inside the air grace: keep the slide jump available (the
-		# jump logic keys off the coyote timer), without extending it
-		# past the end of the grace.
 		if not player.is_on_floor():
 			player.coyote_timer = maxf(player.coyote_timer, delta)
 
-		# Anything else that would end the slide only does so if the player
-		# fits at full height. Otherwise they stay crouched and keep sliding
-		# until the cover ends, instead of the collider growing into it.
 		if player.is_ots_mode or blocked:
 			if player.can_stand_up():
 				if blocked and not player.is_ots_mode:
@@ -302,9 +265,6 @@ func update(delta: float) -> void:
 
 		var downhill: float = get_downhill_factor()
 
-		# Airborne for a frame or two on a slope: keep the last downhill
-		# boost instead of treating it as flat ground (which would bleed
-		# speed and run down the slide timer).
 		if player.is_on_floor():
 			last_downhill = downhill
 		else:
@@ -325,8 +285,6 @@ func update(delta: float) -> void:
 			)
 			timer += delta
 
-			# Out of time, but only stand up once there's room. Until then the
-			# slide carries on at end_speed.
 			if timer >= current_duration and player.can_stand_up():
 				finish(true)
 		return

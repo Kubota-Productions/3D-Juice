@@ -2,12 +2,10 @@ extends Node3D
 class_name NPCBrain
 
 @export var nav_region: NavigationRegion3D = null
-@export var player: Node3D = null  # Changed to Node3D for compatibility
-@export var npc_scene: PackedScene = null  # Scene to instantiate NPCs
-@export var num_npcs: int = 5  # Number of NPCs to spawn
-@export var min_spawn_separation: float = 2.0  # Minimum distance between NPCs
-
-# Configuration variables
+@export var player: Node3D = null  
+@export var npc_scene: PackedScene = null  
+@export var num_npcs: int = 5  
+@export var min_spawn_separation: float = 2.0  
 @export var wander_area: Vector3 = Vector3(50, 0, 50)
 @export var speed: float = 1.5
 @export var run_away_speed: float = 6.0
@@ -27,15 +25,13 @@ class_name NPCBrain
 @export var stuck_time_threshold: float = 1.0
 @export var jump_probability: float = 0.01
 
-# References
-var npcs: Array = []  # Array of NPC instances
-var npc_states: Dictionary = {}  # Per-NPC state
+var npcs: Array = []  
+var npc_states: Dictionary = {}  
 
 func _ready():
-	# Wait for proper initialization
 	await get_tree().process_frame
 	if not is_inside_tree():
-		return  # scene was reloaded/torn down while we were waiting
+		return
 	await get_tree().physics_frame
 	if not is_inside_tree():
 		return
@@ -44,18 +40,15 @@ func _ready():
 		push_error("NPCBrain: nav_region, player, or npc_scene not set")
 		return
 	
-	# Connect the nav mesh changed signal
 	if nav_region.navigation_mesh_changed.connect(_on_nav_map_changed) != OK:
 		push_warning("Failed to connect navigation_mesh_changed signal")
 	
-	# Wait for physics to be ready
 	await get_tree().physics_frame
 	if not is_inside_tree():
 		return
 	
 	spawn_npcs()
 	
-	# Register existing NPCs
 	for child in get_tree().get_nodes_in_group("npcs"):
 		if child is CharacterBody3D and child.has_method("set_brain") and not npcs.has(child):
 			register_npc(child)
@@ -78,21 +71,17 @@ func spawn_npcs():
 		var max_attempts = 50
 		
 		while attempts < max_attempts:
-			# Wait a frame if we've tried multiple times
 			if attempts > 0:
 				await get_tree().physics_frame
 				
-			# Random position within bounds
 			var random_pos = Vector3(
 				randf_range(bounds.position.x, bounds.position.x + bounds.size.x),
 				0,
 				randf_range(bounds.position.z, bounds.position.z + bounds.size.z)
 			)
-			
-			# Snap to navmesh
+
 			spawn_pos = NavigationServer3D.map_get_closest_point(map, random_pos)
 			
-			# Validate spawn position (this is now async)
 			if await is_valid_spawn_position(spawn_pos):
 				break
 				
@@ -103,16 +92,13 @@ func spawn_npcs():
 			push_warning("Failed to find valid spawn position for NPC %d after %d attempts" % [i, max_attempts])
 			continue
 		
-		# Instantiate NPC
 		var npc = npc_scene.instantiate()
 		if not npc is CharacterBody3D:
 			push_error("NPC scene must be a CharacterBody3D")
 			npc.queue_free()
 			continue
 		
-		# Add to scene first
 		add_child(npc)
-		# Wait for the node to be properly added to the scene tree
 		await get_tree().process_frame
 		
 		npc.global_position = spawn_pos
@@ -122,7 +108,7 @@ func spawn_npcs():
 
 
 func is_valid_spawn_position(pos: Vector3) -> bool:
-	# Wait for physics to be ready
+
 	await get_tree().physics_frame
 	if not is_inside_tree():
 		return false
@@ -144,13 +130,12 @@ func is_valid_spawn_position(pos: Vector3) -> bool:
 		var query = PhysicsRayQueryParameters3D.create(from, to)
 		query.collision_mask = 0xFFFFFFFF
 		
-		# Try the raycast with error handling
 		var result
-		for attempt in 3:  # Try up to 3 times
+		for attempt in 3:
 			result = space.intersect_ray(query)
 			if result != null:
 				break
-			await get_tree().physics_frame  # Wait if first attempt fails
+			await get_tree().physics_frame
 			if not is_inside_tree():
 				return false
 			
@@ -195,7 +180,6 @@ func _physics_process(delta: float):
 		var state = npc_states[npc]
 		var distance_to_player = npc.global_position.distance_to(player.global_position)
 
-		# Stuck detection
 		var current_stuck_threshold = stuck_time_threshold if not state.fleeing else stuck_time_threshold * 0.5
 		if not state.waiting and npc.global_position.distance_to(state.last_position) < stuck_threshold:
 			state.stuck_timer += delta
@@ -210,7 +194,6 @@ func _physics_process(delta: float):
 			state.stuck_timer = 0.0
 		state.last_position = npc.global_position
 
-		# Flee or wander logic
 		if distance_to_player < player_detection_radius:
 			if not state.fleeing:
 				state.fleeing = true
@@ -265,7 +248,6 @@ func _physics_process(delta: float):
 			else:
 				move_toward_path(npc, run_away_speed, delta)
 
-		# Update animation based on movement
 		if not state.waiting and not state.fleeing and npc.velocity.length() > 0.1 and not state.is_jumping:
 			npc.play_animation("Walk")
 
@@ -329,10 +311,7 @@ func get_nearby_character_bodies(npc: CharacterBody3D) -> Array:
 		return bodies
 	
 	var shape = SphereShape3D.new()
-	shape.radius = 5.0  # Fixed radius value
-	
-	# No need to await here - shape creation is immediate
-	# Just ensure radius is valid
+	shape.radius = 5.0  
 	if shape.radius <= 0:
 		shape.radius = 5.0
 	
@@ -356,7 +335,6 @@ func get_nearby_character_bodies(npc: CharacterBody3D) -> Array:
 		if collider is CharacterBody3D and npcs.has(collider):
 			bodies.append(collider)
 	
-	# Free the shape to prevent memory leaks
 	shape.free()
 	
 	return bodies
@@ -444,7 +422,6 @@ func set_flee_target(npc: CharacterBody3D) -> void:
 				if npc.nav_agent.is_target_reachable():
 					state.target_position = alt_closest_opposite
 
-	# Fallback: random direction
 	for i in range(10):
 		var random_angle = randf_range(0, TAU)
 		var random_direction = Vector3(cos(random_angle), 0, sin(random_angle)).normalized()
@@ -456,8 +433,6 @@ func set_flee_target(npc: CharacterBody3D) -> void:
 				state.target_position = random_closest
 				return
 
-
-	# Last resort: nearest valid navmesh point
 	var safe_point = NavigationServer3D.map_get_closest_point(map, npc.global_position)
 	if safe_point.distance_to(npc.global_position) > 0.1 and safe_point.distance_to(player.global_position) > npc.global_position.distance_to(player.global_position):
 		npc.nav_agent.set_target_position(safe_point)
@@ -548,10 +523,7 @@ func set_random_target_position(npc: CharacterBody3D) -> void:
 	npc.nav_agent.set_target_position(closest_point)
 	state.target_position = closest_point
 
-	
-	# Add this new method to handle nav mesh changes
 func _on_nav_map_changed():
-	# When the navigation mesh changes, we might want to update NPC paths
 	for npc in npcs:
 		var state = npc_states[npc]
 		if state.fleeing:
