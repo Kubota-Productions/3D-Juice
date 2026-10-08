@@ -272,6 +272,10 @@ shader_parameter/foam_strength = 1.0
 material = SubResource("ShaderMaterial_v4yyn")
 size = Vector2(20, 40)
 
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_yf5fn"]
+height = 8.0
+radius = 0.05
+
 [node name="Node3D" type="Node3D" unique_id=1767665750]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=512153090]
@@ -3057,24 +3061,6 @@ material_override = ExtResource("1_er3k5")
 use_collision = true
 size = Vector3(7, 8, 12)
 
-[node name="CSGBox3D186" type="CSGBox3D" parent="ENV" unique_id=1021338922]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.68579, -8.549273, 9.65624)
-material_override = ExtResource("1_er3k5")
-use_collision = true
-size = Vector3(0.5, 13, 0.5)
-
-[node name="CSGBox3D437" type="CSGBox3D" parent="ENV" unique_id=1905157394]
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 109.68579, -8.549273, 9.65624)
-material_override = ExtResource("1_er3k5")
-use_collision = true
-size = Vector3(0.5, 13, 0.5)
-
-[node name="CSGBox3D438" type="CSGBox3D" parent="ENV" unique_id=1986063003]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.68579, -5.0492725, 3.6562405)
-material_override = ExtResource("1_er3k5")
-use_collision = true
-size = Vector3(0.5, 10, 0.5)
-
 [node name="CSGBox3D439" type="CSGBox3D" parent="ENV" unique_id=1268501912]
 transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 98.68579, 5.9507275, 5.6562405)
 material_override = ExtResource("1_er3k5")
@@ -3263,158 +3249,307 @@ transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, -21,
 material_override = ExtResource("1_er3k5")
 polygon = PackedVector2Array(-13, 1, -13, 2, 0, 2, 1, 1.78, 2, 1, 2, -1, 0.772, 0.673, 0, 1.01)
 
-[node name="Gravitypickup" parent="ENV" unique_id=332084249 instance=ExtResource("9_ryche")]
+[node name="Collectibles" type="Node" parent="ENV" unique_id=520832809]
+
+[node name="Gravitypickup" parent="ENV/Collectibles" unique_id=332084249 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95.20541, 19.99544, -38.905075)
 
-[node name="Gravitypickup2" parent="ENV" unique_id=1732956102 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup2" parent="ENV/Collectibles" unique_id=1732956102 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95.20541, 20.62851, -48.311417)
 
-[node name="Gravitypickup3" parent="ENV" unique_id=985733238 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup3" parent="ENV/Collectibles" unique_id=985733238 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95.20541, 19.65049, -59.339508)
 
-[node name="Gravitypickup4" parent="ENV" unique_id=120843988 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup4" parent="ENV/Collectibles" unique_id=120843988 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112.79459, 16.726765, -50.9352)
 
-[node name="Gravitypickup5" parent="ENV" unique_id=1231871928 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup5" parent="ENV/Collectibles" unique_id=1231871928 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 112.79459, 22.737696, -39.706734)
 
-[node name="Gravitypickup6" parent="ENV" unique_id=1551522857 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup6" parent="ENV/Collectibles" unique_id=1551522857 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.645256, -2.0492725, 9.593578)
 
-[node name="Gravitypickup7" parent="ENV" unique_id=1433226151 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup7" parent="ENV/Collectibles" unique_id=1433226151 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.7417, -0.049272537, 3.650105)
 
-[node name="Gravitypickup8" parent="ENV" unique_id=1282740978 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup8" parent="ENV/Collectibles" unique_id=1282740978 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 103.52454, 6.2007275, 5.665504)
 
-[node name="Gravitypickup9" parent="ENV" unique_id=588416448 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup9" parent="ENV/Collectibles" unique_id=588416448 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 103.48845, 6.2007275, -0.21691233)
 
-[node name="Gravitypickup10" parent="ENV" unique_id=1871030817 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup10" parent="ENV/Collectibles" unique_id=1871030817 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 103.54416, 6.2007275, -5.338752)
 
-[node name="Gravitypickup11" parent="ENV" unique_id=1303088777 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup11" parent="ENV/Collectibles" unique_id=1303088777 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 97.50295, 0.9507276, 25.493155)
 
-[node name="Gravitypickup12" parent="ENV" unique_id=30344407 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup12" parent="ENV/Collectibles" unique_id=30344407 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85.12127, 26.950727, 20.180168)
 
-[node name="Gravitypickup13" parent="ENV" unique_id=685863265 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup13" parent="ENV/Collectibles" unique_id=685863265 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 84.711655, 26.950726, 24.731932)
 
-[node name="Gravitypickup14" parent="ENV" unique_id=1379538906 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup14" parent="ENV/Collectibles" unique_id=1379538906 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.847965, 1.2007272, 15.315945)
 
-[node name="Gravitypickup15" parent="ENV" unique_id=1683838570 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup15" parent="ENV/Collectibles" unique_id=1683838570 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.84619, 1.200727, 15.346196)
 
-[node name="Gravitypickup16" parent="ENV" unique_id=948742647 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup16" parent="ENV/Collectibles" unique_id=948742647 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.63128, 4.369777, 26.794596)
 
-[node name="Gravitypickup17" parent="ENV" unique_id=694078472 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup17" parent="ENV/Collectibles" unique_id=694078472 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 73.89585, -14.5, -21.684498)
 
-[node name="Gravitypickup18" parent="ENV" unique_id=206396206 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup18" parent="ENV/Collectibles" unique_id=206396206 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.20598, -14.5, -21.404425)
 
-[node name="Gravitypickup19" parent="ENV" unique_id=1087587568 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup19" parent="ENV/Collectibles" unique_id=1087587568 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70.22119, -14.5, -62.533215)
 
-[node name="Gravitypickup20" parent="ENV" unique_id=264755304 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup20" parent="ENV/Collectibles" unique_id=264755304 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70.26983, -14.5, -66.15933)
 
-[node name="Gravitypickup21" parent="ENV" unique_id=1618544494 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup21" parent="ENV/Collectibles" unique_id=1618544494 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.922768, -5.5, -83.97546)
 
-[node name="Gravitypickup22" parent="ENV" unique_id=72794344 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup22" parent="ENV/Collectibles" unique_id=72794344 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -211.02348, 11.5, -86.60269)
 
-[node name="Gravitypickup23" parent="ENV" unique_id=360449317 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup23" parent="ENV/Collectibles" unique_id=360449317 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -210.85435, 11.5, -81.5544)
 
-[node name="Gravitypickup24" parent="ENV" unique_id=1569628070 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup24" parent="ENV/Collectibles" unique_id=1569628070 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -206.90063, -9.5, -80.51371)
 
-[node name="Gravitypickup25" parent="ENV" unique_id=1959428341 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup25" parent="ENV/Collectibles" unique_id=1959428341 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -211.99178, -8.5, -92.604294)
 
-[node name="Gravitypickup26" parent="ENV" unique_id=225763890 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup26" parent="ENV/Collectibles" unique_id=225763890 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -205.47075, -9.5, -100.248085)
 
-[node name="Gravitypickup27" parent="ENV" unique_id=251170966 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup27" parent="ENV/Collectibles" unique_id=251170966 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -192.56975, -9.5, -92.31027)
 
-[node name="Gravitypickup28" parent="ENV" unique_id=1805558242 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup28" parent="ENV/Collectibles" unique_id=1805558242 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -180.79585, -9.499999, -100.402756)
 
-[node name="Gravitypickup29" parent="ENV" unique_id=1245144570 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup29" parent="ENV/Collectibles" unique_id=1245144570 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -98.56259, 11.5, -90.535774)
 
-[node name="Gravitypickup30" parent="ENV" unique_id=551255184 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup30" parent="ENV/Collectibles" unique_id=551255184 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -98.89388, 2.499999, -86.33184)
 
-[node name="Gravitypickup31" parent="ENV" unique_id=1020261537 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup31" parent="ENV/Collectibles" unique_id=1020261537 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -129.66777, -6.5, -57.617096)
 
-[node name="Gravitypickup32" parent="ENV" unique_id=1121834396 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup32" parent="ENV/Collectibles" unique_id=1121834396 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -109.86448, 4.5, 7.645953)
 
-[node name="Gravitypickup33" parent="ENV" unique_id=190282336 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup33" parent="ENV/Collectibles" unique_id=190282336 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -115.81, 4.5000005, 7.5191936)
 
-[node name="Gravitypickup34" parent="ENV" unique_id=1466940289 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup34" parent="ENV/Collectibles" unique_id=1466940289 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -137.06367, 22.5, -3.3673546)
 
-[node name="Gravitypickup35" parent="ENV" unique_id=629147393 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup35" parent="ENV/Collectibles" unique_id=629147393 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -134.48352, 25.5, -0.116384506)
 
-[node name="Gravitypickup36" parent="ENV" unique_id=1473479811 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup36" parent="ENV/Collectibles" unique_id=1473479811 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -132.66954, 35.5, 19.340261)
 
-[node name="Gravitypickup37" parent="ENV" unique_id=1812227813 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup37" parent="ENV/Collectibles" unique_id=1812227813 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -123.8986, 35.5, 25.047483)
 
-[node name="Gravitypickup38" parent="ENV" unique_id=388068355 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup38" parent="ENV/Collectibles" unique_id=388068355 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -119.6536, 35.5, 24.971079)
 
-[node name="Gravitypickup39" parent="ENV" unique_id=1107992088 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup39" parent="ENV/Collectibles" unique_id=1107992088 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -103.96415, 35.5, 22.513046)
 
-[node name="Gravitypickup40" parent="ENV" unique_id=15660330 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup40" parent="ENV/Collectibles" unique_id=15660330 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -46.258255, 34.5, 14.05821)
 
-[node name="Gravitypickup41" parent="ENV" unique_id=1739869194 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup41" parent="ENV/Collectibles" unique_id=1739869194 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -200.57495, 9.325134, -25.979616)
 
-[node name="Gravitypickup42" parent="ENV" unique_id=882780741 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup42" parent="ENV/Collectibles" unique_id=882780741 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -211.14049, 9.325134, -25.38139)
 
-[node name="Gravitypickup43" parent="ENV" unique_id=831934267 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup43" parent="ENV/Collectibles" unique_id=831934267 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -212.92863, 9.325134, -40.698944)
 
-[node name="Gravitypickup44" parent="ENV" unique_id=972004229 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup44" parent="ENV/Collectibles" unique_id=972004229 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -190.47536, 7.5, -24.779652)
 
-[node name="Gravitypickup45" parent="ENV" unique_id=855962995 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup45" parent="ENV/Collectibles" unique_id=855962995 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1222289, 30.217773, 84.8387)
 
-[node name="Gravitypickup46" parent="ENV" unique_id=889376706 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup46" parent="ENV/Collectibles" unique_id=889376706 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.0297114, 29.5, 74.28393)
 
-[node name="Gravitypickup47" parent="ENV" unique_id=284810993 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup47" parent="ENV/Collectibles" unique_id=284810993 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1222694, 29.5, 62.29942)
 
-[node name="Gravitypickup48" parent="ENV" unique_id=2063192205 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup48" parent="ENV/Collectibles" unique_id=2063192205 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.3130994, 17.5, 23.236147)
 
-[node name="Gravitypickup49" parent="ENV" unique_id=2104442394 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup49" parent="ENV/Collectibles" unique_id=2104442394 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.30213153, 17.5, 23.215336)
 
-[node name="Gravitypickup50" parent="ENV" unique_id=1232444729 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup50" parent="ENV/Collectibles" unique_id=1232444729 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6540215, 0.5, -1.8906794)
 
-[node name="Gravitypickup51" parent="ENV" unique_id=883185921 instance=ExtResource("9_ryche")]
+[node name="Gravitypickup51" parent="ENV/Collectibles" unique_id=883185921 instance=ExtResource("9_ryche")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1277274, 0.5, -5.7228436)
+
+[node name="Gravitypickup52" parent="ENV/Collectibles" unique_id=1144413686 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5181823, 0.73299074, -8.041644)
+
+[node name="Gravitypickup53" parent="ENV/Collectibles" unique_id=1826775662 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.69434, 5.7329907, -4.479576)
+
+[node name="Gravitypickup54" parent="ENV/Collectibles" unique_id=150355501 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.580527, 5.599098, -4.3516307)
+
+[node name="Gravitypickup55" parent="ENV/Collectibles" unique_id=800103984 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.222347, 14.5, 5.8415966)
+
+[node name="Gravitypickup56" parent="ENV/Collectibles" unique_id=1435486775 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.624165, 14.5, 5.7865024)
+
+[node name="Gravitypickup57" parent="ENV/Collectibles" unique_id=1217258553 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.3624496, 14.5, 5.1182666)
+
+[node name="Gravitypickup58" parent="ENV/Collectibles" unique_id=613377670 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 10.5, 4.7860737)
+
+[node name="Gravitypickup59" parent="ENV/Collectibles" unique_id=1589571936 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 16.5, 4.7860737)
+
+[node name="Gravitypickup60" parent="ENV/Collectibles" unique_id=209861006 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 21.5, 4.7860737)
+
+[node name="Gravitypickup61" parent="ENV/Collectibles" unique_id=320208498 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.613985, 37.95073, 9.377336)
+
+[node name="Gravitypickup62" parent="ENV/Collectibles" unique_id=456445856 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42.493404, 16.5, -32.523197)
+
+[node name="Gravitypickup63" parent="ENV/Collectibles" unique_id=1931934621 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.33491, 10.5, -38.143776)
+
+[node name="Gravitypickup64" parent="ENV/Collectibles" unique_id=904820246 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.466667, 2.0311327, -20.205404)
+
+[node name="Gravitypickup65" parent="ENV/Collectibles" unique_id=1125948755 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.466667, 2.0311327, -25.205404)
+
+[node name="Gravitypickup66" parent="ENV/Collectibles" unique_id=648888983 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2538557, -6.534668, -80.38905)
+
+[node name="Gravitypickup67" parent="ENV/Collectibles" unique_id=719880398 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2538557, -1.534668, -80.38905)
+
+[node name="Gravitypickup68" parent="ENV/Collectibles" unique_id=1385178063 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6167998, 14.5, -90.50444)
+
+[node name="Gravitypickup69" parent="ENV/Collectibles" unique_id=983994123 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.506091, 23.365288, -88.1908)
+
+[node name="Gravitypickup70" parent="ENV/Collectibles" unique_id=786630221 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.506091, 23.365288, -88.1908)
+
+[node name="Gravitypickup71" parent="ENV/Collectibles" unique_id=143959173 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.564794, 19.5, -60.892536)
+
+[node name="Gravitypickup72" parent="ENV/Collectibles" unique_id=567242955 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5060072, 22.5, -60.892536)
+
+[node name="Gravitypickup73" parent="ENV/Collectibles" unique_id=1459516242 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.493993, 18.5, -60.892536)
+
+[node name="Gravitypickup74" parent="ENV/Collectibles" unique_id=731264423 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4939928, 21.5, -60.892536)
+
+[node name="Gravitypickup75" parent="ENV/Collectibles" unique_id=830462592 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.506007, 21.5, -60.892536)
+
+[node name="Gravitypickup76" parent="ENV/Collectibles" unique_id=1500156918 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.70308, 23.5, -51.31451)
+
+[node name="Gravitypickup77" parent="ENV/Collectibles" unique_id=2096461555 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.718197, 23.5, -19.866629)
+
+[node name="Gravitypickup78" parent="ENV/Collectibles" unique_id=126782501 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.749657, 23.5, -19.89198)
+
+[node name="Gravitypickup79" parent="ENV/Collectibles" unique_id=955820566 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.122684, 2.5, -85.95495)
+
+[node name="Gravitypickup80" parent="ENV/Collectibles" unique_id=1661669655 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.122684, 3.5, -89.95495)
+
+[node name="Gravitypickup81" parent="ENV/Collectibles" unique_id=1025034103 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.702248, 2.5000005, -95.5408)
+
+[node name="Gravitypickup82" parent="ENV/Collectibles" unique_id=502449622 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.702248, 3.5000005, -100.5408)
+
+[node name="Gravitypickup83" parent="ENV/Collectibles" unique_id=1445743999 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.474907, 2.4999995, -105.98314)
+
+[node name="Gravitypickup84" parent="ENV/Collectibles" unique_id=26218443 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.574457, 28.95073, -108.98696)
+
+[node name="Gravitypickup85" parent="ENV/Collectibles" unique_id=1948109861 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.1458225, 24.5, -108.532875)
+
+[node name="Gravitypickup86" parent="ENV/Collectibles" unique_id=1542293540 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.334738, 28.95073, -109.24963)
+
+[node name="Gravitypickup87" parent="ENV/Collectibles" unique_id=501514736 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.26627, 28.95073, -105.594124)
+
+[node name="Gravitypickup88" parent="ENV/Collectibles" unique_id=495313487 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.432907, 28.95073, -112.90489)
+
+[node name="Gravitypickup89" parent="ENV/Collectibles" unique_id=1699292140 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.109695, 24.5, -104.28623)
+
+[node name="Gravitypickup90" parent="ENV/Collectibles" unique_id=1603027992 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27.356369, 24.5, -104.60672)
+
+[node name="Gravitypickup91" parent="ENV/Collectibles" unique_id=1509375141 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 72.89616, -5.2375073, -111.78456)
+
+[node name="Gravitypickup92" parent="ENV/Collectibles" unique_id=150203606 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 82.75164, 2.5, -108.01541)
+
+[node name="Gravitypickup93" parent="ENV/Collectibles" unique_id=866321798 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85.21292, 30.5, -112.921555)
+
+[node name="Gravitypickup94" parent="ENV/Collectibles" unique_id=1319132365 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.134075, 26.5, -106.90142)
+
+[node name="Gravitypickup95" parent="ENV/Collectibles" unique_id=1152596834 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.00919, 26.5, -108.094215)
+
+[node name="Gravitypickup96" parent="ENV/Collectibles" unique_id=2141277003 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 98.24023, 13.499999, -109.1184)
+
+[node name="Gravitypickup97" parent="ENV/Collectibles" unique_id=1853716917 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110.754105, 33.95073, -107.70975)
+
+[node name="Gravitypickup98" parent="ENV/Collectibles" unique_id=1801120127 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 93.86524, 30.5, -74.3649)
+
+[node name="Gravitypickup99" parent="ENV/Collectibles" unique_id=861258569 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 94.04332, 30.5, -67.503494)
+
+[node name="Gravitypickup100" parent="ENV/Collectibles" unique_id=127051996 instance=ExtResource("9_ryche")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 93.676285, 30.5, -57.754242)
 
 [node name="InteractiveItems" type="Node" parent="." unique_id=2000224141]
 
@@ -3474,6 +3609,36 @@ font_size = 92
 uppercase = true
 autowrap_mode = 2
 
+[node name="Label3D4" type="Label3D" parent="." unique_id=1927200911]
+transform = Transform3D(-0.4330127, 0, 0.25000003, 0, 0.5, 0, -0.25000003, 0, -0.4330127, -1.8616688, 3.2101336, 15.007809)
+text = "Idea-1 
+-
+sectioned off Hub level that leads to multiple seperate smaller levels 
+-
+each smaller level can provide keys and items that eventually allow you to unlock sections of the Hub and thus more levels of the game
+-
+Emphasis on level exploration, item collection.
+
+"
+font_size = 92
+horizontal_alignment = 0
+autowrap_mode = 2
+width = 4000.0
+
+[node name="Label3D5" type="Label3D" parent="." unique_id=545811435]
+transform = Transform3D(0.12940955, 0, 0.48296288, 0, 0.5, 0, -0.48296288, 0, 0.12940955, -8.861669, 3.2101336, 9.007809)
+text = "Idea-2 
+-
+Speedrunning levels that need to have a minimum speed/style before the level is considered completed
+-
+Emphasis on speed, boss rush game design but for platforming.
+
+"
+font_size = 92
+horizontal_alignment = 0
+autowrap_mode = 2
+width = 4000.0
+
 [node name="Label3D3" type="Label3D" parent="." unique_id=278759543]
 transform = Transform3D(-1, 0, -1.4702742e-07, 0, 1, 0, 1.4702742e-07, 0, -1, 9.629289, 6.1082897, 8.469492)
 text = "Extra hard Challenge Levels
@@ -3506,152 +3671,70 @@ font_size = 92
 uppercase = true
 autowrap_mode = 2
 
-[node name="Gravitypickup" parent="." unique_id=1144413686 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.5181823, 0.73299074, -8.041644)
+[node name="Pole" type="CSGCylinder3D" parent="." unique_id=1259766478 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 4.53125, -7)
+material_override = ExtResource("4_eav6o")
+radius = 0.05
+height = 9.5
+sides = 12
 
-[node name="Gravitypickup2" parent="." unique_id=1826775662 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.69434, 5.7329907, -4.479576)
+[node name="StaticBody3D" type="StaticBody3D" parent="Pole" unique_id=1983088578]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 
-[node name="Gravitypickup3" parent="." unique_id=150355501 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.580527, 5.599098, -4.3516307)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole/StaticBody3D" unique_id=639184630]
+shape = SubResource("CylinderShape3D_yf5fn")
 
-[node name="Gravitypickup4" parent="." unique_id=800103984 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.222347, 14.5, 5.8415966)
+[node name="Pole2" type="CSGCylinder3D" parent="." unique_id=998870795 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.61145, -2.65625, 3)
+material_override = ExtResource("4_eav6o")
+use_collision = true
+radius = 0.1
+height = 25.125
+sides = 12
 
-[node name="Gravitypickup5" parent="." unique_id=1435486775 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.624165, 14.5, 5.7865024)
+[node name="StaticBody3D" type="StaticBody3D" parent="Pole2" unique_id=1010177749]
 
-[node name="Gravitypickup6" parent="." unique_id=1217258553 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.3624496, 14.5, 5.1182666)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole2/StaticBody3D" unique_id=953805762 groups=["pole"]]
+shape = SubResource("CylinderShape3D_yf5fn")
 
-[node name="Gravitypickup7" parent="." unique_id=613377670 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 10.5, 4.7860737)
+[node name="Pole4" type="CSGCylinder3D" parent="." unique_id=663855045 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 104.61145, 13.0625, -37)
+material_override = ExtResource("4_eav6o")
+use_collision = true
+radius = 0.1
+height = 22.5625
+sides = 12
 
-[node name="Gravitypickup8" parent="." unique_id=1589571936 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 16.5, 4.7860737)
+[node name="StaticBody3D" type="StaticBody3D" parent="Pole4" unique_id=40161650]
 
-[node name="Gravitypickup9" parent="." unique_id=209861006 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.718023, 21.5, 4.7860737)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole4/StaticBody3D" unique_id=31043336]
+shape = SubResource("CylinderShape3D_yf5fn")
 
-[node name="Gravitypickup10" parent="." unique_id=320208498 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.613985, 37.95073, 9.377336)
+[node name="Pole5" type="CSGCylinder3D" parent="." unique_id=990078165 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 104.61145, 9.5625, -55)
+material_override = ExtResource("4_eav6o")
+use_collision = true
+radius = 0.1
+height = 15.5625
+sides = 12
 
-[node name="Gravitypickup11" parent="." unique_id=456445856 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42.493404, 16.5, -32.523197)
+[node name="StaticBody3D" type="StaticBody3D" parent="Pole5" unique_id=2120778862]
 
-[node name="Gravitypickup12" parent="." unique_id=1931934621 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.33491, 10.5, -38.143776)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole5/StaticBody3D" unique_id=1737871292]
+shape = SubResource("CylinderShape3D_yf5fn")
 
-[node name="Gravitypickup13" parent="." unique_id=904820246 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.466667, 2.0311327, -20.205404)
+[node name="Pole3" type="CSGCylinder3D" parent="." unique_id=301748766 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109.61145, -6.09375, 10.224568)
+material_override = ExtResource("4_eav6o")
+use_collision = true
+radius = 0.1
+height = 18.25
+sides = 12
 
-[node name="Gravitypickup14" parent="." unique_id=1125948755 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -17.466667, 2.0311327, -25.205404)
+[node name="StaticBody3D" type="StaticBody3D" parent="Pole3" unique_id=2096591253]
 
-[node name="Gravitypickup15" parent="." unique_id=648888983 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2538557, -6.534668, -80.38905)
-
-[node name="Gravitypickup16" parent="." unique_id=719880398 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.2538557, -1.534668, -80.38905)
-
-[node name="Gravitypickup17" parent="." unique_id=1385178063 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.6167998, 14.5, -90.50444)
-
-[node name="Gravitypickup18" parent="." unique_id=983994123 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13.506091, 23.365288, -88.1908)
-
-[node name="Gravitypickup19" parent="." unique_id=786630221 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.506091, 23.365288, -88.1908)
-
-[node name="Gravitypickup20" parent="." unique_id=143959173 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.564794, 19.5, -60.892536)
-
-[node name="Gravitypickup21" parent="." unique_id=567242955 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5060072, 22.5, -60.892536)
-
-[node name="Gravitypickup22" parent="." unique_id=1459516242 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.493993, 18.5, -60.892536)
-
-[node name="Gravitypickup23" parent="." unique_id=731264423 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.4939928, 21.5, -60.892536)
-
-[node name="Gravitypickup24" parent="." unique_id=830462592 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.506007, 21.5, -60.892536)
-
-[node name="Gravitypickup25" parent="." unique_id=1500156918 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.70308, 23.5, -51.31451)
-
-[node name="Gravitypickup26" parent="." unique_id=2096461555 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43.718197, 23.5, -19.866629)
-
-[node name="Gravitypickup27" parent="." unique_id=126782501 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.749657, 23.5, -19.89198)
-
-[node name="Gravitypickup28" parent="." unique_id=955820566 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.122684, 2.5, -85.95495)
-
-[node name="Gravitypickup30" parent="." unique_id=1661669655 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.122684, 3.5, -89.95495)
-
-[node name="Gravitypickup29" parent="." unique_id=1025034103 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.702248, 2.5000005, -95.5408)
-
-[node name="Gravitypickup31" parent="." unique_id=502449622 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.702248, 3.5000005, -100.5408)
-
-[node name="Gravitypickup32" parent="." unique_id=1445743999 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.474907, 2.4999995, -105.98314)
-
-[node name="Gravitypickup33" parent="." unique_id=26218443 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.574457, 28.95073, -108.98696)
-
-[node name="Gravitypickup34" parent="." unique_id=1948109861 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.1458225, 24.5, -108.532875)
-
-[node name="Gravitypickup35" parent="." unique_id=1542293540 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.334738, 28.95073, -109.24963)
-
-[node name="Gravitypickup36" parent="." unique_id=501514736 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.26627, 28.95073, -105.594124)
-
-[node name="Gravitypickup37" parent="." unique_id=495313487 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.432907, 28.95073, -112.90489)
-
-[node name="Gravitypickup38" parent="." unique_id=1699292140 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.109695, 24.5, -104.28623)
-
-[node name="Gravitypickup39" parent="." unique_id=1603027992 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27.356369, 24.5, -104.60672)
-
-[node name="Gravitypickup40" parent="." unique_id=1509375141 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 72.89616, -5.2375073, -111.78456)
-
-[node name="Gravitypickup41" parent="." unique_id=150203606 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 82.75164, 2.5, -108.01541)
-
-[node name="Gravitypickup42" parent="." unique_id=866321798 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85.21292, 30.5, -112.921555)
-
-[node name="Gravitypickup43" parent="." unique_id=1319132365 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.134075, 26.5, -106.90142)
-
-[node name="Gravitypickup44" parent="." unique_id=1152596834 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.00919, 26.5, -108.094215)
-
-[node name="Gravitypickup45" parent="." unique_id=2141277003 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 98.24023, 13.499999, -109.1184)
-
-[node name="Gravitypickup46" parent="." unique_id=1853716917 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110.754105, 33.95073, -107.70975)
-
-[node name="Gravitypickup47" parent="." unique_id=1801120127 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 93.86524, 30.5, -74.3649)
-
-[node name="Gravitypickup48" parent="." unique_id=861258569 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 94.04332, 30.5, -67.503494)
-
-[node name="Gravitypickup49" parent="." unique_id=127051996 instance=ExtResource("9_ryche")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 93.676285, 30.5, -57.754242)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole3/StaticBody3D" unique_id=1310366069 groups=["pole"]]
+shape = SubResource("CylinderShape3D_yf5fn")
 
 [connection signal="body_entered" from="ENV/Deathzone/Area3D" to="ENV/Deathzone/Area3D" method="_on_body_entered"]
 [connection signal="body_entered" from="ENV/Deathzone4/Area3D" to="ENV/Deathzone4/Area3D" method="_on_body_entered"]

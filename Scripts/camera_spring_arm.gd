@@ -251,6 +251,11 @@ func update_look(delta: float) -> void:
 	if yaw_input != 0.0:
 		flat_forward = flat_forward.rotated(up, yaw_input).normalized()
 
+	if player and player.has_pole:
+		var orbit_delta: float = player.pole.take_orbit_delta()
+		if orbit_delta != 0.0:
+			flat_forward = flat_forward.rotated(up, orbit_delta).normalized()
+
 	look_forward = flat_forward
 	last_up = up
 
@@ -263,6 +268,9 @@ func update_look(delta: float) -> void:
 
 	yaw_input = 0.0
 	pitch_input = 0.0
+
+	if yaw_input != 0.0:
+		flat_forward = flat_forward.rotated(up, yaw_input).normalized()
 
 	_apply_combat_assist(delta, up)
 	flat_forward = look_forward

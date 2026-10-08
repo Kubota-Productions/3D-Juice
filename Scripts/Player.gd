@@ -80,6 +80,7 @@ func hard_stop() -> void:
 	wall.kick_facing = false
 	ledge.cancel()
 	hover.cancel()
+	pole.cancel()
 
 
 @export var rotation_pivot: Node3D
@@ -118,6 +119,8 @@ var dive: PlayerDive
 var wall: PlayerWallMovement
 var ledge: PlayerLedgeGrab
 var hover: PlayerHover
+var pole: PlayerPole
+var has_pole := false
 var has_slide := false
 var has_dive := false
 var has_wall := false
@@ -135,6 +138,13 @@ var is_diving: bool:
 var is_hovering: bool:
 	get:
 		return hover != null and hover.is_active
+
+var is_on_pole: bool:
+	get:
+		return pole != null and pole.is_active
+var is_pole_topping_out: bool:
+	get:
+		return pole != null and pole.is_topping_out
 
 var is_wall_running: bool:
 	get:
@@ -194,6 +204,8 @@ func _setup_modules() -> void:
 			hover = instance as PlayerHover
 		elif instance is PlayerSlam and slam == null:
 			slam = instance as PlayerSlam
+		elif instance is PlayerPole and pole == null:
+			pole = instance as PlayerPole
 		else:
 			push_warning("Player: ignoring '%s' in movement_modules (unknown type, or a second one of the same type)." % module.resource_path)
 			continue
@@ -206,6 +218,7 @@ func _setup_modules() -> void:
 	has_ledge = ledge != null
 	has_hover = hover != null
 	has_slam = slam != null
+	has_pole = pole != null
 	
 
 	if slide == null:
@@ -229,6 +242,9 @@ func _setup_modules() -> void:
 	if slam == null:
 		slam = PlayerSlam.new()
 		live_modules.append(slam)
+	if pole == null:
+		pole = PlayerPole.new()
+		live_modules.append(pole)
 
 	for module in live_modules:
 		module.setup(self)
@@ -399,22 +415,29 @@ func _physics_process(delta: float) -> void:
 	_update_ground_state(delta)
 
 	if not ledge.is_active():
-		if has_dive:
-			dive.update(delta)
-		if has_slam:
-			slam.update(delta)
-		if has_slide:
-			slide.update(delta)
-		_update_crouch(delta)
-		if has_wall:
-			wall.update(delta)
-		if has_hover:
-			hover.update(delta)
-		if has_ledge:
-			ledge.try_grab()
+		if has_pole:
+			pole.update(delta)
+			
+
+		if not pole.is_active and not pole.just_released:
+			if has_dive:
+				dive.update(delta)
+			if has_slam:
+				slam.update(delta)
+			if has_slide:
+				slide.update(delta)
+			_update_crouch(delta)
+			if has_wall:
+				wall.update(delta)
+			if has_hover:
+				hover.update(delta)
+			if has_ledge:
+				ledge.try_grab()
 
 	if ledge.is_active():
 		ledge.update(delta)
+	elif pole.is_topping_out:
+		pole.update_top_climb(delta)
 	else:
 		if is_ots_mode and not is_on_floor():
 			is_ots_mode = false
@@ -429,7 +452,7 @@ func _physics_process(delta: float) -> void:
 		var up_speed_before: float = velocity.dot(up_direction)
 		move_and_slide()
 		_limit_unearned_rise(up_speed_before)
-		if has_slide:
+		if has_slide and not pole.is_active:
 			slide.try_steep_slope_slide()
 
 	aim_pivot.global_position = get_body_center()
@@ -591,6 +614,9 @@ func get_fall_gravity() -> float:
 
 func _apply_gravity(delta: float) -> void:
 
+	if pole.apply_gravity(delta):
+		return
+		
 	if wall.apply_gravity(delta):
 		return
 
@@ -627,7 +653,7 @@ func _apply_gravity(delta: float) -> void:
 		add_acceleration(-up_direction * get_fall_gravity())
 
 func _limit_unearned_rise(up_speed_before: float) -> void:
-	if is_on_floor():
+	if is_on_floor() and not pole.is_active:
 		return
 
 	var up_speed_after: float = velocity.dot(up_direction)
@@ -648,6 +674,8 @@ func _handle_jump(_delta: float) -> void:
 		return
 
 	if wall.try_handle_jump():
+		return
+	if pole.try_handle_jump():
 		return
 
 	if coyote_timer > 0.0:
@@ -860,6 +888,9 @@ func _get_target_speed() -> float:
 func _get_target_motion() -> Dictionary:
 	var up := up_direction
 
+	if pole.is_active:
+		return pole.get_target_motion()
+		
 	if slide.is_active:
 		return slide.get_target_motion()
 
@@ -922,6 +953,8 @@ func _handle_movement(delta: float) -> void:
 		max_accel = dive.acceleration
 	elif hover.is_active:
 		max_accel = hover.get_acceleration()
+	elif pole.is_active:
+		max_accel = pole.get_acceleration()
 	else:
 		max_accel = (move_acceleration if is_moving_input else move_deceleration) * air_factor
 
@@ -935,7 +968,7 @@ func _handle_movement(delta: float) -> void:
 		move_direction = target["target_forward"]
 		current_speed = _get_target_speed()
 
-		if not wall.is_wall_sliding and not wall.is_wall_climbing and not wall.kick_facing:
+		if not wall.is_wall_sliding and not wall.is_wall_climbing and not wall.kick_facing and not pole.is_active:
 			var up := up_direction
 			var target_forward := move_direction.slide(up).normalized()
 
@@ -951,6 +984,7 @@ func _handle_movement(delta: float) -> void:
 				)
 
 	wall.update_facing(delta)
+	pole.update_facing(delta)
 
 	update_turn_rate(delta)
 	apply_lean(delta)
@@ -1005,6 +1039,9 @@ func apply_lean(delta: float) -> void:
 
 	if slide.is_active:
 		target_squash_stretch = minf(target_squash_stretch, -squash_stretch_slide_squash)
+
+	if pole.is_active:
+		target_squash_stretch = 0.0
 
 	var spring_accel: float = (
 		(target_squash_stretch - current_squash_stretch) * squash_stretch_stiffness

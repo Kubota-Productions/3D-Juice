@@ -36,6 +36,7 @@ tktarget=""
 npc_heads=""
 interactable=""
 tkplatform=""
+pole=""
 
 [importer_defaults]
 

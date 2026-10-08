@@ -220,13 +220,15 @@ func try_handle_jump() -> bool:
 
 
 func start_wall_jump() -> void:
-	var normal: Vector3 = wall_normal
+	kick_off(wall_normal)
 
+func kick_off(normal: Vector3) -> void:
 	var along: Vector3 = player.velocity.slide(player.up_direction).slide(normal)
 	var launch: Vector3 = along + normal * jump_away_speed
 	player.start_jump(Player.JumpKind.WALL, launch)
 
-	end_wall_movement(true)
+	end_wall_movement(false)
+	lockout_timer = regrab_delay
 	player.jump_buffer_timer = 0.0
 	player.jumps_used = 1
 
@@ -384,7 +386,8 @@ func probe_wall(direction: Vector3) -> Dictionary:
 
 	var collider: Object = hit["collider"]
 	if collider is CharacterBody3D or collider is RigidBody3D:
-		return {}
+		if player.has_pole and player.pole.is_pole_collider(collider):
+			return {}
 
 	var surface_normal: Vector3 = hit["normal"]
 	var flat: Vector3 = surface_normal.slide(player.up_direction)

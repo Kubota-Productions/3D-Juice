@@ -52,6 +52,12 @@ var landing_timer: float = 0.0
 @export var into_hover_blend_time: float = 0.15
 @export var out_of_hover_blend_time: float = 0.2
 
+@export_group("Pole")
+@export var into_pole_blend_time: float = 0.15
+@export var out_of_pole_blend_time: float = 0.15
+@export_range(0.0, 1.0) var pole_idle_time_scale: float = 0.0
+@export var into_pole_top_blend_time: float = 0.1
+@export var out_of_pole_top_blend_time: float = 0.2
 
 enum AnimState {
 	IDLE,
@@ -72,7 +78,9 @@ enum AnimState {
 	WALL_RUN,
 	DIVE,
 	WALL_CLIMB,
-	HOVER
+	HOVER,
+	POLE,
+	POLE_TOP
 }
 
 const LOCOMOTION_BLEND_PARAM := "parameters/BlendSpace1D/blend_position"
@@ -88,6 +96,12 @@ const DIVE_STATE := "Dive"
 const WALL_CLIMB_STATE := "WallClimb"
 const WALL_CLIMB_FALLBACK_STATE := "WallSlide"
 const WALL_RUN_TIME_SCALE_NODE := "TimeScale"
+const POLE_STATE := "Pole"
+const POLE_ENTRY_STATES: Array[String] = ["Fall", "Jump", "DoubleJump", "TripleJump", "WallKick", "JumpOutOfSlide", "Land", "BlendSpace1D"]
+const POLE_EXIT_STATES: Array[String] = ["Fall", "Land", "WallKick", "BlendSpace1D"]
+const POLE_TOP_STATE := "PoleClimbTop"
+const POLE_TOP_FALLBACK_STATE := "LedgeClimb"
+const POLE_TOP_EXIT_STATES: Array[String] = ["BlendSpace1D", "Fall"]
 
 const DIVE_ENTRY_STATES: Array[String] = [
 	"Fall",
@@ -164,6 +178,7 @@ func _ready() -> void:
 	_setup_wall_run_time_scale()
 	_setup_dive_transitions()
 	_setup_hover_state()
+	_setup_pole_state()
 
 	animation_tree.active = true
 
@@ -585,7 +600,33 @@ func update(delta: float) -> void:
 		_update_locomotion_speed(delta)
 
 		return
+	if player.is_pole_topping_out:
+		if current_anim_state != AnimState.POLE_TOP:
+			current_anim_state = AnimState.POLE_TOP
+			_travel_if_present(_get_pole_top_state_name())
 
+		was_on_floor = true
+		was_sliding = false
+		land_anim_active = false
+		landing_timer = 0.0
+
+		_update_locomotion_speed(delta)
+		return
+		
+	if player.is_on_pole:
+			if current_anim_state != AnimState.POLE:
+				current_anim_state = AnimState.POLE
+				_travel_if_present(_get_pole_state_name())
+
+			was_on_floor = on_floor
+			was_sliding = false
+			land_anim_active = false
+			landing_timer = 0.0
+
+			_update_locomotion_speed(delta)
+			_apply_pole_time_scale()
+			return
+		
 	if player.is_diving:
 
 		if current_anim_state != AnimState.DIVE:
@@ -878,6 +919,49 @@ func play_wall_kick() -> void:
 	_travel_if_present(
 		"WallKick"
 	)
+
+func _setup_pole_state() -> void:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if not machine:
+		return
+
+	if machine.has_node(POLE_STATE):
+		_setup_state_time_scale(machine, POLE_STATE)
+
+		for from_state in POLE_ENTRY_STATES:
+			if machine.has_node(from_state):
+				_ensure_transition(machine, from_state, POLE_STATE, into_pole_blend_time)
+
+		for to_state in POLE_EXIT_STATES:
+			if machine.has_node(to_state):
+				_ensure_transition(machine, POLE_STATE, to_state, out_of_pole_blend_time)
+
+		if machine.has_node(POLE_TOP_STATE):
+			_ensure_transition(machine, POLE_STATE, POLE_TOP_STATE, into_pole_top_blend_time)
+
+	if machine.has_node(POLE_TOP_STATE):
+		for to_state in POLE_TOP_EXIT_STATES:
+			if machine.has_node(to_state):
+				_ensure_transition(machine, POLE_TOP_STATE, to_state, out_of_pole_top_blend_time)
+
+func _get_pole_top_state_name() -> String:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if machine and not machine.has_node(POLE_TOP_STATE):
+		return POLE_TOP_FALLBACK_STATE
+	return POLE_TOP_STATE
+
+func _get_pole_state_name() -> String:
+	var machine := animation_tree.tree_root as AnimationNodeStateMachine
+	if machine and not machine.has_node(POLE_STATE):
+		return _get_wall_climb_state_name()
+	return POLE_STATE
+
+
+func _apply_pole_time_scale() -> void:
+	var param: String = _wall_run_time_scale_params.get(POLE_STATE, "")
+	if param.is_empty():
+		return
+	animation_tree.set(param, lerpf(pole_idle_time_scale, 1.0, player.pole.get_motion_ratio()))
 
 func play_launch() -> void:
 	if not animation_tree or not anim_playback:

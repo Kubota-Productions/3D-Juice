@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="PlayerPole" format=3 uid="uid://rafeqwsx1vpb"]
+
+[ext_resource type="Script" uid="uid://dqfl3ucv8wdtm" path="res://Player/MovementScripts/Playerpole.gd" id="1_jco8b"]
+
+[resource]
+script = ExtResource("1_jco8b")
+orbit_speed = 1.0
