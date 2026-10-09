@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://bpsdr5bu8vif5"]
 
 [ext_resource type="PackedScene" uid="uid://606c2x4p3mj" path="res://Player/Monowheel.glb" id="1_2ul8s"]
-[ext_resource type="Script" uid="uid://b5tvj4y5oysxx" path="res://Scenes/Bike.gd" id="1_xnih8"]
+[ext_resource type="Script" uid="uid://b5tvj4y5oysxx" path="res://Scripts/Bike.gd" id="1_xnih8"]
 [ext_resource type="PackedScene" uid="uid://ds2tu4eu72vmo" path="res://Player/wheel.glb" id="3_qasqm"]
-[ext_resource type="Script" uid="uid://ho2r4kkttq52" path="res://Scenes/BikeCameraRig.gd" id="3_y8tag"]
+[ext_resource type="Script" uid="uid://ho2r4kkttq52" path="res://Scripts/BikeCameraRig.gd" id="3_y8tag"]
 [ext_resource type="PackedScene" uid="uid://8ameijg43v2i" path="res://Player/Monoch.glb" id="5_yu03w"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_yu03w"]
