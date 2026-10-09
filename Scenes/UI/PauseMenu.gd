@@ -5,13 +5,11 @@ const SAVE_SECTION := "bindings"
 
 @export var menu_action: StringName = &"OpenMenu"
 
-
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	get_tree().paused = false
 	visible = false
 	_load_bindings()
-
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(menu_action):
@@ -21,12 +19,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			open()
 		get_viewport().set_input_as_handled()
 
-
 func open() -> void:
 	visible = true
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
 
 func close() -> void:
 	get_tree().call_group("keybind_rows", "cancel_listening")
@@ -35,19 +31,17 @@ func close() -> void:
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-
 func _on_resume_button_pressed() -> void:
 	close()
-
 
 func _on_reset_button_pressed() -> void:
 	InputMap.load_from_project_settings()
 	DirAccess.remove_absolute(SAVE_PATH)
 	get_tree().call_group("keybind_rows", "refresh")
 
-
 func _on_exit_button_pressed() -> void:
 	_save_bindings()
+	get_tree().call_group("game_timer", "record_progress")
 	get_tree().quit()
 
 func _on_level_select_button_pressed() -> void:
@@ -57,6 +51,7 @@ func _on_level_select_button_pressed() -> void:
 
 func _save_bindings() -> void:
 	var config := ConfigFile.new()
+	config.load(SAVE_PATH)
 
 	for node in get_tree().get_nodes_in_group("keybind_rows"):
 		var row := node as KeybindRow
@@ -65,14 +60,15 @@ func _save_bindings() -> void:
 
 		var event := row.get_binding()
 		if event is InputEventKey:
-			config.set_value(SAVE_SECTION, String(row.action),
-				{"type": "key", "code": (event as InputEventKey).physical_keycode})
+			var code: int = (event as InputEventKey).physical_keycode
+			if code == KEY_NONE:
+				continue
+			config.set_value(SAVE_SECTION, String(row.action), {"type": "key", "code": code})
 		elif event is InputEventMouseButton:
 			config.set_value(SAVE_SECTION, String(row.action),
 				{"type": "mouse", "button": (event as InputEventMouseButton).button_index})
 
 	config.save(SAVE_PATH)
-
 
 func _load_bindings() -> void:
 	var config := ConfigFile.new()

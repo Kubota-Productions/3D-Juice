@@ -15,6 +15,8 @@ func _ready() -> void:
 		var ev: InputEvent = null
 		match d.get("type", ""):
 			"key":
+				if int(d.get("code", 0)) == 0:
+					continue
 				var k := InputEventKey.new()
 				k.physical_keycode = int(d["code"]) as Key
 				ev = k

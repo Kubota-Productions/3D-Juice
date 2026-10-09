@@ -7,8 +7,7 @@ var catalog: LevelCatalog = load(CATALOG_PATH)
 var current_level: LevelData = null
 
 func get_current() -> LevelData:
-	# Fallback so pressing F6 on a level scene in the editor still works.
-	if current_level == null:
+	if current_level == null and get_tree().current_scene:
 		var path: String = get_tree().current_scene.scene_file_path
 		current_level = catalog.find_by_scene(path)
 		if current_level == null:
@@ -30,6 +29,7 @@ func start_level(level: LevelData) -> void:
 
 func finish_level(result: Dictionary) -> void:
 	var level := get_current()
+	print("3 finish_level, level = ", level.id if level else "NULL")
 	if level:
 		SaveManager.record_run(level.id, result)
 

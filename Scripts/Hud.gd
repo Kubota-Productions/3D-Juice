@@ -70,8 +70,12 @@ func _setup_bottle_counter() -> void:
 	_bottles_total = bottles.size()
 	_bottles_picked_up = 0
 
-	for bottle in bottles:
-		bottle.collected.connect(_on_bottle_collected)
+	for node in bottles:
+		var bottle := node as GravityPickup
+		if bottle.was_collected_before():
+			_bottles_picked_up += 1
+		else:
+			bottle.collected.connect(_on_bottle_collected)
 
 	_update_bottle_label()
 

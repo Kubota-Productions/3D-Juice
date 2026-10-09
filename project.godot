@@ -15,7 +15,7 @@ general/hdr_2d=false
 [application]
 
 config/name="3DJuice"
-run/main_scene="uid://du47hwhl7iq58"
+run/main_scene="uid://c07r04elwio7k"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]

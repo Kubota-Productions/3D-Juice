@@ -36,13 +36,9 @@ var reserved_power: float = 0.0
 @export var wall_follow_lose_surface_time: float = 0.15
 @export var wall_attach_clearance: float = 0.05  
 
-
 var wall_lose_surface_timer: float = 0.0
-
 signal shift_power_changed(current: float, max: float)
-
 var gravity_state := GravityState.GROUNDED
-
 var gravity_direction := Vector3.DOWN
 var shift_speed := 0.0
 

@@ -22,10 +22,22 @@ func _ready() -> void:
 	_start_position = position
 	_float_time = randf_range(0.0, TAU)
 
+	if was_collected_before():
+		_collected = true
+		visible = false
+		set_deferred("monitoring", false)
+	
 func get_id() -> String:
 	if pickup_id != &"":
 		return String(pickup_id)
-	return str(get_tree().current_scene.get_path_to(self))
+	var level_root := get_tree().current_scene
+	if level_root:
+		return str(level_root.get_path_to(self))
+	return str(get_path())
+	
+func was_collected_before() -> bool:
+	var level := LevelManager.get_current()
+	return level != null and SaveManager.has_bottle(level.id, get_id())
 
 func _process(delta: float) -> void:
 	if _collected:

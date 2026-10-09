@@ -4,7 +4,6 @@
 [ext_resource type="PackedScene" uid="uid://bpsdr5bu8vif5" path="res://Scenes/monowheel.tscn" id="2_1rh4x"]
 [ext_resource type="PackedScene" uid="uid://d3by4nu4qen05" path="res://Player/playerprefabMain.tscn" id="2_3c6x7"]
 [ext_resource type="Material" uid="uid://cu2fdh4pvnmqf" path="res://Materials/Dev3.tres" id="3_dkw7v"]
-[ext_resource type="PackedScene" uid="uid://j6s0l0e88mvn" path="res://Scenes/UI/PauseMenu.tscn" id="3_ouu6v"]
 [ext_resource type="Material" uid="uid://d3k2c707i8ebh" path="res://Materials/Dev1.tres" id="5_ouu6v"]
 
 [sub_resource type="Environment" id="Environment_3c6x7"]
@@ -36,8 +35,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60.480297, 13.293274, 76.208
 
 [node name="CharacterBody3D" parent="." unique_id=1969114626 instance=ExtResource("2_1rh4x")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65.72061, 13.189483, 76.24846)
-
-[node name="PauseMenu" parent="." unique_id=598928403 instance=ExtResource("3_ouu6v")]
 
 [node name="ENV" type="Node" parent="." unique_id=1627557550]
 

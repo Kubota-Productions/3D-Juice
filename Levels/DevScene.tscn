@@ -3,8 +3,8 @@
 [ext_resource type="Material" uid="uid://d3k2c707i8ebh" path="res://Materials/Dev1.tres" id="1_er3k5"]
 [ext_resource type="Material" uid="uid://biqqkpnmjl741" path="res://Materials/Dev2.tres" id="1_qxdav"]
 [ext_resource type="PackedScene" uid="uid://d3by4nu4qen05" path="res://Player/playerprefabMain.tscn" id="1_yv0b8"]
-[ext_resource type="PackedScene" uid="uid://j6s0l0e88mvn" path="res://Scenes/UI/PauseMenu.tscn" id="2_qtj1u"]
 [ext_resource type="Shader" uid="uid://b7eugm83vu1gh" path="res://Scripts/Water.gdshader" id="3_dyom7"]
+[ext_resource type="Script" uid="uid://dx5ykopyb2jpd" path="res://Scripts/GameController.gd" id="3_f04lj"]
 [ext_resource type="Material" uid="uid://cu2fdh4pvnmqf" path="res://Materials/Dev3.tres" id="4_eav6o"]
 [ext_resource type="PackedScene" uid="uid://cfahswakqqjl0" path="res://Assets/spoon.tscn" id="4_hfium"]
 [ext_resource type="Script" uid="uid://cakk7yc4dx3i1" path="res://Scripts/DeathZone.gd" id="4_v4yyn"]
@@ -300,7 +300,8 @@ transform = Transform3D(1, 0, 0, 0, -0.50000006, 0.8660254, 0, -0.8660254, -0.50
 [node name="Playerprefab" parent="." unique_id=559073357 instance=ExtResource("1_yv0b8")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, 2)
 
-[node name="PauseMenu" parent="." unique_id=598928403 instance=ExtResource("2_qtj1u")]
+[node name="GameController" type="CanvasLayer" parent="." unique_id=33417833]
+script = ExtResource("3_f04lj")
 
 [node name="ENV" type="Node" parent="." unique_id=440543417]
 
@@ -3620,6 +3621,66 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.4049706, 1.5011227, -2.541
 [node name="Spoon9" parent="InteractiveItems" unique_id=707042201 instance=ExtResource("4_hfium")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.4049706, 1.5011227, -4.5411487)
 
+[node name="Pole" type="CSGCylinder3D" parent="InteractiveItems" unique_id=1259766478 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 4.53125, -7)
+material_override = ExtResource("4_eav6o")
+radius = 0.05
+height = 10.0
+sides = 12
+
+[node name="StaticBody3D" type="StaticBody3D" parent="InteractiveItems/Pole" unique_id=1983088578]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveItems/Pole/StaticBody3D" unique_id=639184630]
+shape = SubResource("CylinderShape3D_qtj1u")
+
+[node name="Pole7" type="CSGCylinder3D" parent="InteractiveItems" unique_id=1628270329 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109, -2.65625, 11)
+material_override = ExtResource("4_eav6o")
+radius = 0.05
+height = 25.0
+sides = 12
+
+[node name="StaticBody3D" type="StaticBody3D" parent="InteractiveItems/Pole7" unique_id=1892571927]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveItems/Pole7/StaticBody3D" unique_id=453433542]
+shape = SubResource("CylinderShape3D_k2iba")
+
+[node name="Pole8" type="CSGCylinder3D" parent="InteractiveItems" unique_id=1395767465 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109, -1.90625, 4)
+material_override = ExtResource("4_eav6o")
+radius = 0.05
+height = 30.0
+sides = 12
+
+[node name="StaticBody3D" type="StaticBody3D" parent="InteractiveItems/Pole8" unique_id=633509]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveItems/Pole8/StaticBody3D" unique_id=536005142]
+shape = SubResource("CylinderShape3D_yf5fn")
+
+[node name="Pole8" type="CSGCylinder3D" parent="InteractiveItems/Pole8" unique_id=239840165 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5724792, 18.09375, -41.906578)
+material_override = ExtResource("4_eav6o")
+radius = 0.05
+height = 30.0
+sides = 12
+
+[node name="StaticBody3D" type="StaticBody3D" parent="InteractiveItems/Pole8/Pole8" unique_id=1391637083]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveItems/Pole8/Pole8/StaticBody3D" unique_id=1212927328]
+shape = SubResource("CylinderShape3D_yf5fn")
+
+[node name="Pole9" type="CSGCylinder3D" parent="InteractiveItems/Pole8" unique_id=874429660 groups=["pole"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4275208, 18.09375, -53.906578)
+material_override = ExtResource("4_eav6o")
+radius = 0.05
+height = 30.0
+sides = 12
+
+[node name="StaticBody3D" type="StaticBody3D" parent="InteractiveItems/Pole8/Pole9" unique_id=740999931]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveItems/Pole8/Pole9/StaticBody3D" unique_id=142711044]
+shape = SubResource("CylinderShape3D_yf5fn")
+
 [node name="3DJuicePC" parent="." unique_id=1076544756 instance=ExtResource("5_yiqus")]
 transform = Transform3D(0.15, 0, 0, 0, 0.15, 0, 0, 0, 0.15, -2.9965363, 0.5099418, 2.067326)
 
@@ -3692,66 +3753,6 @@ text = "Medium Challenge Levels
 font_size = 92
 uppercase = true
 autowrap_mode = 2
-
-[node name="Pole" type="CSGCylinder3D" parent="." unique_id=1259766478 groups=["pole"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 4.53125, -7)
-material_override = ExtResource("4_eav6o")
-radius = 0.05
-height = 10.0
-sides = 12
-
-[node name="StaticBody3D" type="StaticBody3D" parent="Pole" unique_id=1983088578]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole/StaticBody3D" unique_id=639184630]
-shape = SubResource("CylinderShape3D_qtj1u")
-
-[node name="Pole7" type="CSGCylinder3D" parent="." unique_id=1628270329 groups=["pole"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109, -2.65625, 11)
-material_override = ExtResource("4_eav6o")
-radius = 0.05
-height = 25.0
-sides = 12
-
-[node name="StaticBody3D" type="StaticBody3D" parent="Pole7" unique_id=1892571927]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole7/StaticBody3D" unique_id=453433542]
-shape = SubResource("CylinderShape3D_k2iba")
-
-[node name="Pole8" type="CSGCylinder3D" parent="." unique_id=1395767465 groups=["pole"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 109, -1.90625, 4)
-material_override = ExtResource("4_eav6o")
-radius = 0.05
-height = 30.0
-sides = 12
-
-[node name="StaticBody3D" type="StaticBody3D" parent="Pole8" unique_id=633509]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole8/StaticBody3D" unique_id=536005142]
-shape = SubResource("CylinderShape3D_yf5fn")
-
-[node name="Pole8" type="CSGCylinder3D" parent="Pole8" unique_id=239840165 groups=["pole"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5724792, 18.09375, -41.906578)
-material_override = ExtResource("4_eav6o")
-radius = 0.05
-height = 30.0
-sides = 12
-
-[node name="StaticBody3D" type="StaticBody3D" parent="Pole8/Pole8" unique_id=1391637083]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole8/Pole8/StaticBody3D" unique_id=1212927328]
-shape = SubResource("CylinderShape3D_yf5fn")
-
-[node name="Pole9" type="CSGCylinder3D" parent="Pole8" unique_id=874429660 groups=["pole"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.4275208, 18.09375, -53.906578)
-material_override = ExtResource("4_eav6o")
-radius = 0.05
-height = 30.0
-sides = 12
-
-[node name="StaticBody3D" type="StaticBody3D" parent="Pole8/Pole9" unique_id=740999931]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Pole8/Pole9/StaticBody3D" unique_id=142711044]
-shape = SubResource("CylinderShape3D_yf5fn")
 
 [node name="CharacterBody3D" parent="." unique_id=1969114626 instance=ExtResource("11_8xr35")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.090203285, 3.6566978, 5.9567204)
