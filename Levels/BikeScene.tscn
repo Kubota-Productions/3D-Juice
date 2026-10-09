@@ -1,9 +1,10 @@
 [gd_scene format=3 uid="uid://du47hwhl7iq58"]
 
 [ext_resource type="PackedScene" uid="uid://bni6n5sj8nqga" path="res://Assets/Land.glb" id="1_knqcq"]
+[ext_resource type="PackedScene" uid="uid://bpsdr5bu8vif5" path="res://Scenes/monowheel.tscn" id="2_1rh4x"]
 [ext_resource type="PackedScene" uid="uid://d3by4nu4qen05" path="res://Player/playerprefabMain.tscn" id="2_3c6x7"]
 [ext_resource type="Material" uid="uid://cu2fdh4pvnmqf" path="res://Materials/Dev3.tres" id="3_dkw7v"]
-[ext_resource type="PackedScene" uid="uid://bpsdr5bu8vif5" path="res://Scenes/monowheel.tscn" id="3_qpv6e"]
+[ext_resource type="PackedScene" uid="uid://j6s0l0e88mvn" path="res://Scenes/UI/PauseMenu.tscn" id="3_ouu6v"]
 [ext_resource type="Material" uid="uid://d3k2c707i8ebh" path="res://Materials/Dev1.tres" id="5_ouu6v"]
 
 [sub_resource type="Environment" id="Environment_3c6x7"]
@@ -33,174 +34,178 @@ transform = Transform3D(1, 0, 0, 0, -0.50000006, 0.8660254, 0, -0.8660254, -0.50
 [node name="Playerprefab" parent="." unique_id=559073357 instance=ExtResource("2_3c6x7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60.480297, 13.293274, 76.2089)
 
-[node name="CharacterBody3D" parent="." unique_id=1969114626 instance=ExtResource("3_qpv6e")]
+[node name="CharacterBody3D" parent="." unique_id=1969114626 instance=ExtResource("2_1rh4x")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65.72061, 13.189483, 76.24846)
 
-[node name="Land" parent="." unique_id=1634271679 instance=ExtResource("1_knqcq")]
+[node name="PauseMenu" parent="." unique_id=598928403 instance=ExtResource("3_ouu6v")]
 
-[node name="StaticBody3D2" type="StaticBody3D" parent="Land" unique_id=1508717552]
+[node name="ENV" type="Node" parent="." unique_id=1627557550]
 
-[node name="CollisionShape3D2" type="CollisionShape3D" parent="Land/StaticBody3D2" unique_id=1031284418]
-shape = SubResource("ConcavePolygonShape3D_qpv6e")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Land/StaticBody3D2" unique_id=1582145247]
-shape = SubResource("ConcavePolygonShape3D_fdcs7")
-
-[node name="CSGBox3D428" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1247882153]
+[node name="CSGBox3D428" type="CSGBox3D" parent="ENV" unique_id=1247882153]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56.03482, 41.689484, 0.74845886)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(5, 58, 11)
 
-[node name="CSGBox3D442" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1894478411]
+[node name="CSGBox3D442" type="CSGBox3D" parent="ENV" unique_id=1894478411]
 transform = Transform3D(0.70710677, 0, -0.70710677, 0, 1, 0, 0.70710677, 0, 0.70710677, 20.96518, 50.689484, -2.2515411)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(5, 76, 11)
 
-[node name="CSGBox3D432" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=129424870]
+[node name="CSGBox3D432" type="CSGBox3D" parent="ENV" unique_id=129424870]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.96518, 24.189484, 28.748459)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(5, 23, 11)
 
-[node name="CSGBox3D436" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1407487674]
+[node name="CSGBox3D436" type="CSGBox3D" parent="ENV" unique_id=1407487674]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.46518, 37.689484, 28.748459)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(2, 46, 11)
 
-[node name="CSGBox3D438" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1731285802]
+[node name="CSGBox3D438" type="CSGBox3D" parent="ENV" unique_id=1731285802]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.46518, 65.68948, 6.748459)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(2, 34, 11)
 
-[node name="CSGBox3D441" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=40661936]
+[node name="CSGBox3D441" type="CSGBox3D" parent="ENV" unique_id=40661936]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.96518, 54.689484, 6.248459)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(5, 4, 2)
 
-[node name="CSGBox3D439" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=346191229]
+[node name="CSGBox3D439" type="CSGBox3D" parent="ENV" unique_id=346191229]
 transform = Transform3D(0.70710677, 0, 0.70710677, 0, 1, 0, -0.70710677, 0, 0.70710677, 29.113783, 59.689484, 0.32904148)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(2, 22, 34)
 
-[node name="CSGBox3D440" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=909398374]
+[node name="CSGBox3D440" type="CSGBox3D" parent="ENV" unique_id=909398374]
 transform = Transform3D(0.70710677, 0, 0.70710677, 0, 1, 0, -0.70710677, 0, 0.70710677, 38.306168, 61.189484, 3.1574688)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(11, 3, 3)
 
-[node name="CSGBox3D433" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=291583321]
+[node name="CSGBox3D433" type="CSGBox3D" parent="ENV" unique_id=291583321]
 transform = Transform3D(0.49999997, -0.86602545, 0, 0.86602545, 0.49999997, 0, 0, 0, 1, -6.7848196, 5.5699368, 28.748459)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(48, 23, 11)
 
-[node name="CSGBox3D434" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=914412362]
+[node name="CSGBox3D434" type="CSGBox3D" parent="ENV" unique_id=914412362]
 transform = Transform3D(0.24999999, -0.4330127, -0.86602545, 0.94858825, 0.28884858, 0.1294095, 0.19411428, -0.85385406, 0.48296294, -4.5348196, 14.107231, 49.495487)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(66, 23, 11)
 
-[node name="CSGBox3D136" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1726951129]
+[node name="CSGBox3D136" type="CSGBox3D" parent="ENV" unique_id=1726951129]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -66.03482, 38.689484, 0.24845886)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(23, 2, 6)
 
-[node name="CSGBox3D139" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=83361265]
+[node name="CSGBox3D139" type="CSGBox3D" parent="ENV" unique_id=83361265]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -66.03482, 25.189484, -14.251541)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(3, 21, 3)
 
-[node name="CSGBox3D140" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=176421082]
+[node name="CSGBox3D140" type="CSGBox3D" parent="ENV" unique_id=176421082]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -44.03482, 68.68948, -0.12903595)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(3, 8, 3)
 
-[node name="CSGBox3D429" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=520097799]
+[node name="CSGBox3D429" type="CSGBox3D" parent="ENV" unique_id=520097799]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -59.03482, 62.189484, -5.251541)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(37, 9, 21)
 
-[node name="CSGBox3D435" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1415290497]
+[node name="CSGBox3D435" type="CSGBox3D" parent="ENV" unique_id=1415290497]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.96518, 18.189484, 45.74846)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(37, 19, 21)
 
-[node name="CSGBox3D430" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=850424405]
+[node name="CSGBox3D430" type="CSGBox3D" parent="ENV" unique_id=850424405]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.03482, 64.18948, -9.751541)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(11, 1, 12)
 
-[node name="CSGBox3D437" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=439077978]
+[node name="CSGBox3D437" type="CSGBox3D" parent="ENV" unique_id=439077978]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.96518, 56.189484, 32.24846)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(11, 1, 12)
 
-[node name="CSGBox3D431" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=432726969]
+[node name="CSGBox3D431" type="CSGBox3D" parent="ENV" unique_id=432726969]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.03482, 71.18948, -0.10086894)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(11, 1, 2)
 
-[node name="CSGBox3D141" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1162230912]
+[node name="CSGBox3D141" type="CSGBox3D" parent="ENV" unique_id=1162230912]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -57.53482, 31.189484, -14.251541)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(16, 1, 1)
 
-[node name="CSGBox3D143" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1508572199]
+[node name="CSGBox3D143" type="CSGBox3D" parent="ENV" unique_id=1508572199]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52.03482, 49.189484, -0.25154114)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(5, 1, 1)
 
-[node name="CSGBox3D142" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1073808159]
+[node name="CSGBox3D142" type="CSGBox3D" parent="ENV" unique_id=1073808159]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -59.53482, 26.689484, -14.251541)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(2, 24, 3)
 
-[node name="Pole" type="CSGCylinder3D" parent="Land" unique_id=1149220086 groups=["pole"]]
+[node name="Land" parent="ENV" unique_id=1634271679 instance=ExtResource("1_knqcq")]
+
+[node name="StaticBody3D2" type="StaticBody3D" parent="ENV/Land" unique_id=1508717552]
+
+[node name="CollisionShape3D2" type="CollisionShape3D" parent="ENV/Land/StaticBody3D2" unique_id=1031284418]
+shape = SubResource("ConcavePolygonShape3D_qpv6e")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/Land/StaticBody3D2" unique_id=1582145247]
+shape = SubResource("ConcavePolygonShape3D_fdcs7")
+
+[node name="Pole" type="CSGCylinder3D" parent="ENV/Land" unique_id=1149220086 groups=["pole"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -68, 28.53125, 0)
 material_override = ExtResource("3_dkw7v")
 radius = 0.05
 height = 20.0
 sides = 12
 
-[node name="StaticBody3D" type="StaticBody3D" parent="Land/Pole" unique_id=1070272880]
+[node name="StaticBody3D" type="StaticBody3D" parent="ENV/Land/Pole" unique_id=1070272880]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Land/Pole/StaticBody3D" unique_id=1298443213]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/Land/Pole/StaticBody3D" unique_id=1298443213]
 shape = SubResource("CylinderShape3D_vp1mq")
 
-[node name="Pole2" type="CSGCylinder3D" parent="Land" unique_id=442708645 groups=["pole"]]
+[node name="Pole2" type="CSGCylinder3D" parent="ENV/Land" unique_id=442708645 groups=["pole"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -34, 61.53125, 0)
 material_override = ExtResource("3_dkw7v")
 radius = 0.05
 height = 20.0
 sides = 12
 
-[node name="StaticBody3D" type="StaticBody3D" parent="Land/Pole2" unique_id=121637177]
+[node name="StaticBody3D" type="StaticBody3D" parent="ENV/Land/Pole2" unique_id=121637177]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Land/Pole2/StaticBody3D" unique_id=1071509495]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ENV/Land/Pole2/StaticBody3D" unique_id=1071509495]
 shape = SubResource("CylinderShape3D_vp1mq")
 
-[node name="CSGBox3D448" type="CSGBox3D" parent="Land" unique_id=1828318742 groups=["tkplatform"]]
+[node name="CSGBox3D448" type="CSGBox3D" parent="ENV/Land" unique_id=1828318742 groups=["tkplatform"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.49586, 29, 50)
 material_override = ExtResource("3_dkw7v")
 use_collision = true
 size = Vector3(9, 1, 6)
 
-[node name="AnimatableBody3D" type="AnimatableBody3D" parent="Land/CSGBox3D448" unique_id=1531498144]
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="ENV/Land/CSGBox3D448" unique_id=1531498144]
 disable_mode = 2

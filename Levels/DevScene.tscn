@@ -3,14 +3,14 @@
 [ext_resource type="Material" uid="uid://d3k2c707i8ebh" path="res://Materials/Dev1.tres" id="1_er3k5"]
 [ext_resource type="Material" uid="uid://biqqkpnmjl741" path="res://Materials/Dev2.tres" id="1_qxdav"]
 [ext_resource type="PackedScene" uid="uid://d3by4nu4qen05" path="res://Player/playerprefabMain.tscn" id="1_yv0b8"]
-[ext_resource type="PackedScene" uid="uid://j6s0l0e88mvn" path="res://Player/UI/PauseMenu.tscn" id="2_qtj1u"]
+[ext_resource type="PackedScene" uid="uid://j6s0l0e88mvn" path="res://Scenes/UI/PauseMenu.tscn" id="2_qtj1u"]
 [ext_resource type="Shader" uid="uid://b7eugm83vu1gh" path="res://Scripts/Water.gdshader" id="3_dyom7"]
 [ext_resource type="Material" uid="uid://cu2fdh4pvnmqf" path="res://Materials/Dev3.tres" id="4_eav6o"]
 [ext_resource type="PackedScene" uid="uid://cfahswakqqjl0" path="res://Assets/spoon.tscn" id="4_hfium"]
 [ext_resource type="Script" uid="uid://cakk7yc4dx3i1" path="res://Scripts/DeathZone.gd" id="4_v4yyn"]
 [ext_resource type="PackedScene" uid="uid://buojk8mfigyck" path="res://Player/3DJuicePC.glb" id="5_yiqus"]
 [ext_resource type="PackedScene" uid="uid://fke3elxona2a" path="res://Assets/Gravitypickup.tscn" id="9_ryche"]
-[ext_resource type="PackedScene" uid="uid://bpsdr5bu8vif5" path="res://Scenes/monowheel.tscn" id="11_k2iba"]
+[ext_resource type="PackedScene" uid="uid://bpsdr5bu8vif5" path="res://Scenes/monowheel.tscn" id="11_8xr35"]
 
 [sub_resource type="Environment" id="Environment_v2ubv"]
 background_energy_multiplier = 2.49
@@ -3753,7 +3753,7 @@ sides = 12
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Pole8/Pole9/StaticBody3D" unique_id=142711044]
 shape = SubResource("CylinderShape3D_yf5fn")
 
-[node name="CharacterBody3D" parent="." unique_id=1969114626 instance=ExtResource("11_k2iba")]
+[node name="CharacterBody3D" parent="." unique_id=1969114626 instance=ExtResource("11_8xr35")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.090203285, 3.6566978, 5.9567204)
 
 [connection signal="body_entered" from="ENV/Deathzone/Area3D" to="ENV/Deathzone/Area3D" method="_on_body_entered"]

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="LevelCatalog" format=3 uid="uid://ntwl5b742f8p"]
+
+[ext_resource type="Script" uid="uid://khghswrsmk7c" path="res://Scripts/LevelData.gd" id="1_20ekx"]
+[ext_resource type="Script" uid="uid://bgon7v07vc042" path="res://Scripts/LevelCatalog.gd" id="2_uvipe"]
+
+[sub_resource type="Resource" id="Resource_2ft3q"]
+script = ExtResource("1_20ekx")
+id = &"level_01"
+display_name = "dev level 01"
+scene_path = "uid://c07r04elwio7k"
+metadata/_custom_type_script = "uid://khghswrsmk7c"
+
+[sub_resource type="Resource" id="Resource_20ekx"]
+script = ExtResource("1_20ekx")
+id = &"level_02"
+display_name = "dev level 02"
+scene_path = "uid://du47hwhl7iq58"
+metadata/_custom_type_script = "uid://khghswrsmk7c"
+
+[resource]
+script = ExtResource("2_uvipe")
+levels = Array[ExtResource("1_20ekx")]([SubResource("Resource_2ft3q"), SubResource("Resource_20ekx")])
+metadata/_custom_type_script = "uid://bgon7v07vc042"

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://j6s0l0e88mvn"]
 
-[ext_resource type="PackedScene" uid="uid://c52y3dd4e8m3j" path="res://Player/UI/KeybindRow.tscn" id="1_geem2"]
-[ext_resource type="Script" uid="uid://cawoi8pygsnqr" path="res://Player/UI/PauseMenu.gd" id="1_ijg0c"]
+[ext_resource type="PackedScene" uid="uid://c52y3dd4e8m3j" path="res://Scenes/UI/KeybindRow.tscn" id="1_geem2"]
+[ext_resource type="Script" uid="uid://cawoi8pygsnqr" path="res://Scenes/UI/PauseMenu.gd" id="1_ijg0c"]
 
 [node name="PauseMenu" type="CanvasLayer" unique_id=598928403]
 script = ExtResource("1_ijg0c")
@@ -56,6 +56,11 @@ text = "Reset keybinds to default"
 [node name="ExitButton" type="Button" parent="Center/Panel/Margin/Layout/Buttons" unique_id=1271475888]
 layout_mode = 2
 text = "Exit Game"
+
+[node name="LevelSelectButton" type="Button" parent="Center/Panel/Margin/Layout/Buttons" unique_id=942349841]
+layout_mode = 2
+text = "Level Select
+"
 
 [node name="Title" type="Label" parent="Center/Panel/Margin/Layout" unique_id=395851296]
 layout_mode = 2
@@ -133,3 +138,4 @@ display_name = "Toggle Tooltip"
 [connection signal="pressed" from="Center/Panel/Margin/Layout/Buttons/ResumeButton" to="." method="_on_resume_button_pressed"]
 [connection signal="pressed" from="Center/Panel/Margin/Layout/Buttons/ResetButton" to="." method="_on_reset_button_pressed"]
 [connection signal="pressed" from="Center/Panel/Margin/Layout/Buttons/ExitButton" to="." method="_on_exit_button_pressed"]
+[connection signal="pressed" from="Center/Panel/Margin/Layout/Buttons/LevelSelectButton" to="." method="_on_level_select_button_pressed"]

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c52y3dd4e8m3j"]
 
-[ext_resource type="Script" uid="uid://e0ci51ldqd8o" path="res://Player/UI/KeybindRow.gd" id="1_xfxmm"]
+[ext_resource type="Script" uid="uid://e0ci51ldqd8o" path="res://Scenes/UI/KeybindRow.gd" id="1_xfxmm"]
 
 [node name="KeybindRow" type="HBoxContainer" unique_id=1216010091]
 offset_right = 40.0

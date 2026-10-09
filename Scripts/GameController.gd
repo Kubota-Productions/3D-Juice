@@ -36,6 +36,10 @@ enum State { RUNNING, CAPTURED, ESCAPED }
 @export var escape_kills_prefix: String = "NPCs killed: "
 @export var restart_delay: float = 3.0
 @export var restart_after_escape: bool = false
+@export var return_to_selector_after_escape: bool = true
+
+var _bottles_collected: Array[String] = []
+var _bottles_total: int = 0
 
 @export_group("Display")
 @export var font_size: int = 48
@@ -67,6 +71,18 @@ func _ready() -> void:
 	_build_ui()
 	_update_label(0.0)
 	_update_keys_label()
+	_hook_bottles()
+
+func _hook_bottles() -> void:
+	await get_tree().process_frame
+	for p in get_tree().get_nodes_in_group("gravity_pickup"):
+		_bottles_total += 1
+		p.collected.connect(_on_bottle_collected.bind(p))
+
+func _on_bottle_collected(p: GravityPickup) -> void:
+	var id: String = p.get_id()
+	if not _bottles_collected.has(id):
+		_bottles_collected.append(id)
 
 
 func _physics_process(delta: float) -> void:
@@ -110,6 +126,7 @@ func capture() -> void:
 
 	state = State.CAPTURED
 	time_left = 0.0
+	record_progress()
 
 	var player_ref := player as Player
 	if player_ref:
@@ -132,6 +149,7 @@ func escape() -> void:
 		return
 
 	state = State.ESCAPED
+	LevelManager.finish_level(_build_result(true))
 
 	if is_instance_valid(player):
 		var player_ref := player as Player
@@ -154,8 +172,8 @@ func escape() -> void:
 	_show_end_message(escaped_text, escaped_color, stats_text)
 	escaped.emit()
 
-	if restart_after_escape:
-		_schedule_reload()
+	if return_to_selector_after_escape:
+		get_tree().create_timer(restart_delay).timeout.connect(LevelManager.go_to_selector)
 
 
 func reset_timer() -> void:
@@ -311,3 +329,15 @@ func _flash_message(text: String) -> void:
 func _format_time(t: float) -> String:
 	var total: int = int(ceil(t))
 	return "%d:%02d" % [floori(total / 60.0), total % 60]
+	
+func _build_result(escaped: bool) -> Dictionary:
+	return {
+		"escaped": escaped,
+		"time": elapsed_time,
+		"kills": npc_kills,
+		"bottles": _bottles_collected,
+		"bottles_total": _bottles_total,
+	}
+
+func record_progress() -> void:
+	LevelManager.finish_level(_build_result(false))

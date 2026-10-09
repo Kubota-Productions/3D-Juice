@@ -50,6 +50,10 @@ func _on_exit_button_pressed() -> void:
 	_save_bindings()
 	get_tree().quit()
 
+func _on_level_select_button_pressed() -> void:
+	_save_bindings()
+	get_tree().call_group("game_timer", "record_progress")
+	LevelManager.go_to_selector()
 
 func _save_bindings() -> void:
 	var config := ConfigFile.new()

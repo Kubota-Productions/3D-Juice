@@ -36,15 +36,6 @@ func _initialize_highlight_overlays() -> void:
 		var materials: Array[ShaderMaterial] = []
 		_collect_highlight_materials(target, materials)
 
-		for mat in materials:
-			mat.set_shader_parameter("highlight_amount", 0.0)
-
-	print(
-		"InteractionHighlightController: initialized ",
-		interactables.size(),
-		" interactable(s) with highlight overlays disabled."
-	)
-
 func update(delta: float) -> void:
 	if not camera or not player:
 		return
@@ -57,29 +48,7 @@ func update(delta: float) -> void:
 
 			_collect_highlight_materials(new_target, state.materials)
 
-			print(
-				"InteractionHighlightController: target acquired -> ",
-				new_target.name,
-				" (",
-				state.materials.size(),
-				" overlay shader material(s) found)"
-			)
-
-			if state.materials.is_empty():
-				push_warning(
-					"InteractionHighlightController: '%s' is in group '%s' "
-					+ "but no MeshInstance3D under it has a ShaderMaterial "
-					+ "assigned as its Material Overlay."
-					% [new_target.name, target_group]
-				)
-
 			active_highlights[new_target] = state
-
-		elif not new_target and current_target:
-			print(
-				"InteractionHighlightController: target lost -> ",
-				current_target.name
-			)
 
 		current_target = new_target
 

@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://cjplp5srcbtu"]
+
+[ext_resource type="Script" uid="uid://m2r6ovwq33bp" path="res://Scripts/LevelCard.gd" id="1_isfu2"]
+
+[node name="LevelCard" type="Button" unique_id=2074662436]
+custom_minimum_size = Vector2(260, 200)
+offset_right = 8.0
+offset_bottom = 8.0
+script = ExtResource("1_isfu2")
+
+[node name="VBox" type="VBoxContainer" parent="." unique_id=1174300360]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Thumb" type="TextureRect" parent="VBox" unique_id=80382050]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 6
+
+[node name="NameLabel" type="Label" parent="VBox" unique_id=2039291642]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Name Label (Label, %NameLabel)"
+
+[node name="InfoLabel" type="Label" parent="VBox" unique_id=199186808]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Info Label (Label, %InfoLabel)"

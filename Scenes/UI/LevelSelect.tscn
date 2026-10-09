@@ -1,0 +1,49 @@
+[gd_scene format=3 uid="uid://dwgfbw0cy88gb"]
+
+[ext_resource type="Script" uid="uid://dhtebj48p00qi" path="res://Scripts/LevelSelect.gd" id="1_syujh"]
+[ext_resource type="PackedScene" uid="uid://cjplp5srcbtu" path="res://Scenes/UI/LevelCard.tscn" id="2_kxjdg"]
+
+[node name="LevelSelect" type="Control" unique_id=1337328429]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_syujh")
+card_scene = ExtResource("2_kxjdg")
+
+[node name="Margin" type="MarginContainer" parent="." unique_id=23379228]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 40
+
+[node name="VBox" type="VBoxContainer" parent="Margin" unique_id=1923662120]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Margin/VBox" unique_id=285428367]
+layout_mode = 2
+text = "Select Level
+"
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/VBox" unique_id=672108497]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Grid" type="GridContainer" parent="Margin/VBox/Scroll" unique_id=1532736430]
+layout_mode = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 16
+columns = 3
+
+[node name="QuitButton" type="Button" parent="Margin/VBox" unique_id=2027648130]
+layout_mode = 2
+text = "Quit
+"

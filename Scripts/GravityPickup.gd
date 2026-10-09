@@ -3,7 +3,7 @@ class_name GravityPickup
 
 signal collected
 
-@export var refill_amount: float = -1.0
+@export var pickup_id: StringName = &""
 @export var pickup_effect: Node = null
 @export var wait_for_effect: bool = false
 @export var float_height: float = 0.25
@@ -22,26 +22,23 @@ func _ready() -> void:
 	_start_position = position
 	_float_time = randf_range(0.0, TAU)
 
+func get_id() -> String:
+	if pickup_id != &"":
+		return String(pickup_id)
+	return str(get_tree().current_scene.get_path_to(self))
+
 func _process(delta: float) -> void:
 	if _collected:
 		return
-
 	_float_time += delta * float_speed
 	position.y = _start_position.y + sin(_float_time) * float_height
 	rotate_y(rotation_speed * delta)
 
 func _on_body_entered(body: Node3D) -> void:
-	if _collected:
+	if _collected or not (body is Player):
 		return
-
-	var gravity_controller: GravityController = body.get_node_or_null("GravityController")
-	if not gravity_controller:
-		return
-
 	_collected = true
-	gravity_controller.refill_shift_power(refill_amount)
 	collected.emit()
-
 	_play_effect_and_free()
 
 func _play_effect_and_free() -> void:
@@ -54,10 +51,8 @@ func _play_effect_and_free() -> void:
 		sound.global_position = global_position
 		sound.play()
 		sound.finished.connect(sound.queue_free)
-
 	elif pickup_effect is GPUParticles3D:
 		pickup_effect.emitting = true
-
 	elif pickup_effect is AnimationPlayer:
 		pickup_effect.play("pickup")
 
