@@ -59,15 +59,11 @@ func _process(delta: float) -> void:
 	if Cam_controller == null or player_cam == null:
 		return
 
-
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("DismissToolTip"):
 		if tooltip_item:
 			tooltip_item.visible = not tooltip_item.visible
 		get_viewport().set_input_as_handled()
-
-	elif event.is_action_pressed("CloseGame"):
-		get_tree().quit()
 
 func _setup_bottle_counter() -> void:
 	var bottles: Array[Node] = get_tree().get_nodes_in_group("gravity_pickup")

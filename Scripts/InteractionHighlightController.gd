@@ -115,6 +115,14 @@ func update(delta: float) -> void:
 
 			active_highlights.erase(target)
 
+func clear_highlights() -> void:
+	for target in active_highlights.keys():
+		var state: HighlightState = active_highlights[target]
+		for mat in state.materials:
+			mat.set_shader_parameter("highlight_amount", 0.0)
+	active_highlights.clear()
+	current_target = null
+
 func _find_target() -> Node:
 	var from: Vector3 = camera.global_position
 	var to: Vector3 = (

@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://c52y3dd4e8m3j"]
+
+[ext_resource type="Script" uid="uid://e0ci51ldqd8o" path="res://Player/UI/KeybindRow.gd" id="1_xfxmm"]
+
+[node name="KeybindRow" type="HBoxContainer" unique_id=1216010091]
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_xfxmm")
+
+[node name="NameLabel" type="Label" parent="." unique_id=771012108]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BindButton" type="Button" parent="." unique_id=1611940489]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+
+[connection signal="pressed" from="BindButton" to="." method="_on_bind_button_pressed"]

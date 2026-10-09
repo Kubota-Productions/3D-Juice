@@ -4,4 +4,5 @@
 
 [resource]
 script = ExtResource("1_jco8b")
+climb_speed = 10.0
 orbit_speed = 1.0

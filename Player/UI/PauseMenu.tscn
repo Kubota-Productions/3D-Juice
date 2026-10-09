@@ -1,0 +1,135 @@
+[gd_scene format=3 uid="uid://j6s0l0e88mvn"]
+
+[ext_resource type="PackedScene" uid="uid://c52y3dd4e8m3j" path="res://Player/UI/KeybindRow.tscn" id="1_geem2"]
+[ext_resource type="Script" uid="uid://cawoi8pygsnqr" path="res://Player/UI/PauseMenu.gd" id="1_ijg0c"]
+
+[node name="PauseMenu" type="CanvasLayer" unique_id=598928403]
+script = ExtResource("1_ijg0c")
+
+[node name="Dim" type="ColorRect" parent="." unique_id=2087511455]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.003921569)
+
+[node name="Center" type="CenterContainer" parent="." unique_id=874055620]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -325.0
+offset_right = 325.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="Panel" parent="Center" unique_id=1632830301]
+custom_minimum_size = Vector2(650, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel" unique_id=976821829]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Center/Panel/Margin" unique_id=625468274]
+layout_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="Center/Panel/Margin/Layout" unique_id=1958878599]
+layout_mode = 2
+offset_transform_enabled = true
+
+[node name="ResumeButton" type="Button" parent="Center/Panel/Margin/Layout/Buttons" unique_id=852391072]
+layout_mode = 2
+text = "Resume"
+
+[node name="ResetButton" type="Button" parent="Center/Panel/Margin/Layout/Buttons" unique_id=1436324379]
+layout_mode = 2
+text = "Reset keybinds to default"
+
+[node name="ExitButton" type="Button" parent="Center/Panel/Margin/Layout/Buttons" unique_id=1271475888]
+layout_mode = 2
+text = "Exit Game"
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/Layout" unique_id=395851296]
+layout_mode = 2
+text = "Controls"
+
+[node name="Scroll" type="ScrollContainer" parent="Center/Panel/Margin/Layout" unique_id=549384860]
+custom_minimum_size = Vector2(10, 420)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Rows" type="VBoxContainer" parent="Center/Panel/Margin/Layout/Scroll" unique_id=770426255]
+layout_mode = 2
+size_flags_horizontal = 2
+
+[node name="KeybindRow" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=1216010091 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"forward"
+display_name = "Move Forward"
+
+[node name="KeybindRow2" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=1056108711 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"backwards"
+display_name = "Move Back"
+
+[node name="KeybindRow3" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=589702794 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"left"
+display_name = "Move Left"
+
+[node name="KeybindRow4" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=526382091 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"right"
+display_name = "Move Right"
+
+[node name="KeybindRow5" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=136383658 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"Run"
+display_name = "Run"
+
+[node name="KeybindRow6" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=1469759628 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"Jump"
+display_name = "Jump"
+
+[node name="KeybindRow7" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=406105544 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"Slide"
+display_name = "Slide&Dive&Hover"
+
+[node name="KeybindRow8" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=1592318985 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"Crouch"
+display_name = "Crouch"
+
+[node name="KeybindRow9" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=1140984330 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"ToggleOTS"
+display_name = "Over the shoulder & Slam"
+
+[node name="KeybindRow10" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=1282492066 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"Telekinesis"
+display_name = "Telekinesis"
+
+[node name="KeybindRow11" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=139720809 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"Combat"
+display_name = "Combat"
+
+[node name="KeybindRow12" parent="Center/Panel/Margin/Layout/Scroll/Rows" unique_id=1267533991 instance=ExtResource("1_geem2")]
+layout_mode = 2
+action = &"DismissToolTip"
+display_name = "Toggle Tooltip"
+
+[connection signal="pressed" from="Center/Panel/Margin/Layout/Buttons/ResumeButton" to="." method="_on_resume_button_pressed"]
+[connection signal="pressed" from="Center/Panel/Margin/Layout/Buttons/ResetButton" to="." method="_on_reset_button_pressed"]
+[connection signal="pressed" from="Center/Panel/Margin/Layout/Buttons/ExitButton" to="." method="_on_exit_button_pressed"]

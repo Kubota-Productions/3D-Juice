@@ -16,6 +16,14 @@ const NORMAL_COLLISION_HEIGHT := 1.344
 const SLIDE_COLLISION_Y := 0.33
 const SLIDE_COLLISION_HEIGHT := 0.672
 
+var vehicle: Node3D = null
+var _saved_collision_layer: int = 0
+var _saved_collision_mask: int = 0
+
+var is_in_vehicle: bool:
+	get:
+		return vehicle != null
+
 var slam: PlayerSlam
 var has_slam := false
 
@@ -51,14 +59,11 @@ static func acceleration_toward(
 func add_acceleration(accel: Vector3) -> void:
 	pending_acceleration += accel
 
-
 func add_impulse(impulse: Vector3) -> void:
 	pending_acceleration += impulse / max(_current_delta, 0.0001)
 
-
 func get_predicted_velocity() -> Vector3:
 	return velocity + pending_acceleration * _current_delta
-
 
 func _integrate_velocity(delta: float) -> void:
 	velocity += pending_acceleration * delta
@@ -379,6 +384,13 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+
+	if event.is_action_pressed("Interact"):
+		var target: Node = interaction_highlight_controller.current_target
+		if target and target.has_method("interact") and can_enter_vehicle():
+			target.interact(self)
+			get_viewport().set_input_as_handled()
+			return
 
 	if event.is_action_pressed("ToggleOTS"):
 		if is_ots_mode:
@@ -1129,3 +1141,74 @@ func remove_for_escape() -> void:
 		character_model.visible = false
 	collision_layer = 0
 	collision_mask = 0
+
+func can_enter_vehicle() -> bool:
+	return (
+		vehicle == null
+		and not movement_locked
+		and is_on_floor()
+		and up_direction.is_equal_approx(Vector3.UP)
+	)
+
+
+func enter_vehicle(new_vehicle: Node3D) -> void:
+	if vehicle != null:
+		return
+
+	vehicle = new_vehicle
+
+	is_ots_mode = false
+	telekinesis_controller.clear_held_objects()
+	telekinesis_controller.is_button_held = false
+	combat_controller.is_button_held = false
+	combat_controller.update(0.0)
+	interaction_highlight_controller.clear_highlights()
+	force_idle()
+
+	_saved_collision_layer = collision_layer
+	_saved_collision_mask = collision_mask
+	collision_layer = 0
+	collision_mask = 0
+	visible = false
+	process_mode = Node.PROCESS_MODE_DISABLED
+
+func get_active_collision_mask() -> int:
+	return _saved_collision_mask if vehicle != null else collision_mask
+
+func is_standing_spot_clear(feet_position: Vector3, extra_exclude: Array[RID] = []) -> bool:
+	if not player_collision_shape or not player_collision_shape.shape:
+		return true
+
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	if not space:
+		return true
+
+	var excluded: Array[RID] = [get_rid()]
+	excluded.append_array(extra_exclude)
+
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = _stand_check_shape if _stand_check_shape else player_collision_shape.shape
+	query.transform = Transform3D(
+		Basis(),
+		feet_position + Vector3.UP * (NORMAL_COLLISION_Y + STAND_CHECK_LIFT)
+	)
+	query.collision_mask = get_active_collision_mask()
+	query.exclude = excluded
+
+	return space.intersect_shape(query, 1).is_empty()
+
+func exit_vehicle(exit_position: Vector3) -> void:
+	if vehicle == null:
+		return
+
+	vehicle = null
+
+	global_position = exit_position
+	velocity = Vector3.ZERO
+	collision_layer = _saved_collision_layer
+	collision_mask = _saved_collision_mask
+	visible = true
+	process_mode = Node.PROCESS_MODE_INHERIT
+
+	spring_arm.smoothed_pivot_position = get_camera_anchor()
+	camera_3d.make_current()
