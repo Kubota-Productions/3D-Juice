@@ -52,6 +52,60 @@ material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(5, 58, 11)
 
+[node name="CSGBox3D442" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1894478411]
+transform = Transform3D(0.70710677, 0, -0.70710677, 0, 1, 0, 0.70710677, 0, 0.70710677, 20.96518, 50.689484, -2.2515411)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(5, 76, 11)
+
+[node name="CSGBox3D432" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=129424870]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.96518, 24.189484, 28.748459)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(5, 23, 11)
+
+[node name="CSGBox3D436" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1407487674]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.46518, 37.689484, 28.748459)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(2, 46, 11)
+
+[node name="CSGBox3D438" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1731285802]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.46518, 65.68948, 6.748459)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(2, 34, 11)
+
+[node name="CSGBox3D441" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=40661936]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.96518, 54.689484, 6.248459)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(5, 4, 2)
+
+[node name="CSGBox3D439" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=346191229]
+transform = Transform3D(0.70710677, 0, 0.70710677, 0, 1, 0, -0.70710677, 0, 0.70710677, 29.113783, 59.689484, 0.32904148)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(2, 22, 34)
+
+[node name="CSGBox3D440" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=909398374]
+transform = Transform3D(0.70710677, 0, 0.70710677, 0, 1, 0, -0.70710677, 0, 0.70710677, 38.306168, 61.189484, 3.1574688)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(11, 3, 3)
+
+[node name="CSGBox3D433" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=291583321]
+transform = Transform3D(0.49999997, -0.86602545, 0, 0.86602545, 0.49999997, 0, 0, 0, 1, -6.7848196, 5.5699368, 28.748459)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(48, 23, 11)
+
+[node name="CSGBox3D434" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=914412362]
+transform = Transform3D(0.24999999, -0.4330127, -0.86602545, 0.94858825, 0.28884858, 0.1294095, 0.19411428, -0.85385406, 0.48296294, -4.5348196, 14.107231, 49.495487)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(66, 23, 11)
+
 [node name="CSGBox3D136" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1726951129]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -66.03482, 38.689484, 0.24845886)
 material_override = ExtResource("5_ouu6v")
@@ -76,8 +130,20 @@ material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(37, 9, 21)
 
+[node name="CSGBox3D435" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=1415290497]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.96518, 18.189484, 45.74846)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(37, 19, 21)
+
 [node name="CSGBox3D430" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=850424405]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.03482, 64.18948, -9.751541)
+material_override = ExtResource("5_ouu6v")
+use_collision = true
+size = Vector3(11, 1, 12)
+
+[node name="CSGBox3D437" type="CSGBox3D" parent="Land/StaticBody3D2" unique_id=439077978]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.96518, 56.189484, 32.24846)
 material_override = ExtResource("5_ouu6v")
 use_collision = true
 size = Vector3(11, 1, 12)
@@ -129,3 +195,12 @@ sides = 12
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Land/Pole2/StaticBody3D" unique_id=1071509495]
 shape = SubResource("CylinderShape3D_vp1mq")
+
+[node name="CSGBox3D448" type="CSGBox3D" parent="Land" unique_id=1828318742 groups=["tkplatform"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 38.49586, 29, 50)
+material_override = ExtResource("3_dkw7v")
+use_collision = true
+size = Vector3(9, 1, 6)
+
+[node name="AnimatableBody3D" type="AnimatableBody3D" parent="Land/CSGBox3D448" unique_id=1531498144]
+disable_mode = 2
