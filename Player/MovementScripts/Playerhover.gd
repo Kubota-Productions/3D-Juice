@@ -85,9 +85,9 @@ func start() -> void:
 	player.jump_phase_timer = 0.0
 
 func update(delta: float) -> void:
-	if player.crouch_slide_pressed() and not player.is_on_floor():
+	if Input.is_action_just_pressed("Jump"):
 		_armed = true
-	if not player.crouch_slide_held():
+	if not Input.is_action_pressed("Jump"):
 		_armed = false
 
 	if is_active:
@@ -106,7 +106,7 @@ func _should_end() -> bool:
 	return (
 		player.is_on_floor()
 		or player.movement_locked
-		or not player.crouch_slide_held()
+		or not Input.is_action_pressed("Jump")
 		or player.wall.state != PlayerWallMovement.WallState.NONE
 		or player.ledge.is_active()
 	)
